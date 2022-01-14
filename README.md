@@ -1,12 +1,10 @@
-# Kepler — [![Lint and Tests](https://github.com/Exein-io/nvdio/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Exein-io/nvdio/actions/workflows/test.yml) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+# Kepler — [![Lint and Tests](https://github.com/Exein-io/kepler/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Exein-io/kepler/actions/workflows/test.yml) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-<img align="left" width="20%" height="20%" src="res/kepler-logo.png">
+<img align="left" width="25%" height="25%" src="res/kepler-logo.png">
 
 <br/>
 
 Kepler is a vulnerability database and lookup store and API currently utilising [National Vulnerability Database](https://nvd.nist.gov/) and [NPM Advisories](https://npmjs.org/) as data sources; implementing CPE 2.3 tree expressions and version range evaluation in realtime.
-
-Powered by Rust, Kepler aims to be efficient in its performance as well as memory footprint.
 
 <br/>
 
