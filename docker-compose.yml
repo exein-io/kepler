@@ -1,0 +1,41 @@
+version: '3'
+services:
+  db:
+    image: postgres:14.1
+    container_name: kepler-postgres
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    restart: always
+    environment:
+      - POSTGRES_DB=kepler
+      - POSTGRES_USER=kepler
+      - POSTGRES_PASSWORD=kepler
+    ports:
+      - 5432:5432
+
+  kepler:
+    build: .
+    container_name: kepler
+    image: kepler:dev
+    volumes:
+      - ./data:/data
+    depends_on:
+      - db
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+      - ROCKET_LOG=off
+      - ROCKET_ADDRESS=0.0.0.0
+      - ROCKET_PORT=8000
+      - DATABASE_URL=postgres://kepler:kepler@db/kepler
+    ports:
+      - "8000:8000"
+
+  updater:
+    image: mcuadros/ofelia:latest
+    container_name: kepler-updater
+    depends_on:
+      - kepler
+    volumes:
+      - ./ofelia.ini:/etc/ofelia/config.ini
+      - /var/run/docker.sock:/var/run/docker.sock:ro

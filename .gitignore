@@ -1,0 +1,6 @@
+/target
+/*.log
+/data/*.json
+/data/*.xml
+/db
+.env
