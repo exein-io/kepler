@@ -2,7 +2,7 @@
 
 <img align="left" width="20%" height="20%" src="res/kepler-logo.png">
 
-<br/><br/>
+<br/>
 
 Kepler is a vulnerability database and lookup store and API currently utilising [National Vulnerability Database](https://nvd.nist.gov/) and [NPM Advisories](https://npmjs.org/) as data sources; implementing CPE 2.3 tree expressions and version range evaluation in realtime.
 
