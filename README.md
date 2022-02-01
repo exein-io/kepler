@@ -1,6 +1,15 @@
-# Kepler — [![Lint and Tests](https://github.com/Exein-io/kepler/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Exein-io/kepler/actions/workflows/test.yml) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
-<img align="left" width="25%" height="25%" src="res/kepler-logo.png">
+<div align="center">
+    <img width="300" src="res/kepler-logo.png" alt="Kepler logo">
+ 
+  <p>
+    <a href="https://github.com/Exein-io/kepler/actions/workflows/test.yml">
+      <img src="https://github.com/Exein-io/kepler/actions/workflows/test.yml/badge.svg?branch=main" alt="Lint and Tests">
+    </a>
+    <a href="https://opensource.org/licenses/Apache-2.0">
+      <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License">
+    </a>
+  </p>
+</div>
 
 <br/>
 
