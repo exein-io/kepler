@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4.19", features = ["serde"] }
-clap = "2.33.3"
+clap = "3.0.12"
 cpe = "0.1.0"
 diesel =  { version = "1.4.7", features = ["postgres", "r2d2"] }
 dotenv = "0.15.0"

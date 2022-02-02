@@ -3,12 +3,12 @@ extern crate diesel;
 extern crate r2d2;
 extern crate r2d2_diesel;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg};
+use env_logger::Env;
+use lazy_static::lazy_static;
+use log::info;
 use std::fs;
 use std::path::PathBuf;
-
-use env_logger::Env;
-use log::info;
 
 mod api;
 mod db;
@@ -49,41 +49,44 @@ fn import_npm(matches: &clap::ArgMatches) {
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
     let matches = App::new("nvdio")
+        .version(crate::version())
+        .about("Kepler vulnerability database search engine")
+        .setting(AppSettings::DisableHelpSubcommand)
         .subcommand(
-            SubCommand::with_name("import_nist")
+            App::new("import_nist")
                 .about("imports the specified year of CVE from the NIST data feed")
                 .arg(
-                    Arg::with_name("year")
+                    Arg::new("year")
                         .help("the year to import")
                         .index(1)
                         .required(true),
                 )
                 .arg(
-                    Arg::with_name("data")
-                        .short("d")
+                    Arg::new("data")
+                        .short('d')
                         .long("data")
                         .default_value("./data")
                         .help("Data path."),
                 )
                 .arg(
-                    Arg::with_name("fresh")
-                        .short("f")
+                    Arg::new("fresh")
+                        .short('f')
                         .long("fresh")
                         .help("Download fresh files."),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("import_npm")
+            App::new("import_npm")
                 .about("imports vulnerabilities from the registry.npmjs.org data feed")
                 .arg(
-                    Arg::with_name("recent")
-                        .short("r")
+                    Arg::new("recent")
+                        .short('r')
                         .long("recent")
                         .help("only download recent records"),
                 )
                 .arg(
-                    Arg::with_name("data")
-                        .short("d")
+                    Arg::new("data")
+                        .short('d')
                         .long("data")
                         .default_value("./data")
                         .help("Data path."),
@@ -91,14 +94,32 @@ async fn main() -> Result<(), anyhow::Error> {
         )
         .get_matches();
 
-    env_logger::Builder::from_env(Env::default()).init();
+    match matches.subcommand() {
+        Some((exec_name, matches)) => {
+            // Init logger for non web application
+            env_logger::Builder::from_env(Env::default()).init();
 
-    if let Some(matches) = matches.subcommand_matches("import_nist") {
-        import_nist(matches);
-    } else if let Some(matches) = matches.subcommand_matches("import_npm") {
-        import_npm(matches);
-    } else {
-        api::run()?.await?;
+            match exec_name {
+                "import_nist" => import_nist(matches),
+                "import_npm" => import_npm(matches),
+                _ => unreachable!("Trying to launch a not existent subcommand"),
+            }
+        }
+        None => api::run()?.await?,
     }
+
     Ok(())
+}
+
+fn version() -> &'static str {
+    #[cfg(debug_assertions)]
+    lazy_static! {
+        static ref VERSION: String = format!("{}+dev", env!("CARGO_PKG_VERSION"));
+    }
+
+    #[cfg(not(debug_assertions))]
+    lazy_static! {
+        static ref VERSION: String = env!("CARGO_PKG_VERSION").to_string();
+    }
+    &VERSION
 }
