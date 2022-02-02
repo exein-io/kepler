@@ -1,13 +1,7 @@
-#![feature(decl_macro)]
 #[macro_use]
 extern crate diesel;
 extern crate r2d2;
 extern crate r2d2_diesel;
-#[macro_use]
-extern crate rocket;
-extern crate rocket_contrib;
-#[macro_use]
-extern crate lazy_static;
 
 use clap::{App, Arg, SubCommand};
 use std::fs;
@@ -52,7 +46,8 @@ fn import_npm(matches: &clap::ArgMatches) {
     }
 }
 
-fn main() {
+#[actix_web::main]
+async fn main() -> Result<(), anyhow::Error> {
     let matches = App::new("nvdio")
         .subcommand(
             SubCommand::with_name("import_nist")
@@ -103,6 +98,7 @@ fn main() {
     } else if let Some(matches) = matches.subcommand_matches("import_npm") {
         import_npm(matches);
     } else {
-        api::run();
+        api::run()?.await?;
     }
+    Ok(())
 }

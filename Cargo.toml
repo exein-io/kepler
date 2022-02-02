@@ -18,15 +18,13 @@ r2d2 = "0.8.9"
 r2d2-diesel = "1.0.0"
 regex = "1.5.4"
 reqwest = { version = "0.11.4", features = ["blocking"] }
-rocket = "0.4.10"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.67"
 version-compare = "0.0.13"
 lru = "0.6.6"
 lazy_static = "1.4.0"
 diesel_json = "0.1.1"
-
-[dependencies.rocket_contrib]
-version = "*"
-default-features = false
-features = ["json"]
+actix-web = "4.0.0-rc.1"
+actix-cors = "0.6.0-beta.8"
+tracing-actix-web = "0.5.0-rc.1"
+anyhow = "1.0.53"

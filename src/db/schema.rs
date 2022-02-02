@@ -28,7 +28,4 @@ table! {
 
 joinable!(cves -> objects (object_id));
 
-allow_tables_to_appear_in_same_query!(
-    cves,
-    objects,
-);
+allow_tables_to_appear_in_same_query!(cves, objects,);

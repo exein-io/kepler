@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 use std::time::Instant;
 
+use lazy_static::lazy_static;
 use log::info;
 use lru::LruCache;
 use serde::Deserialize;
