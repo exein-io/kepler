@@ -4,26 +4,11 @@ use diesel::insert_into;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use r2d2_diesel::ConnectionManager;
-use rocket::http::Status;
-use rocket::request::{self, FromRequest};
-use rocket::{Outcome, Request, State};
 
 pub mod models;
 pub mod schema;
 
 pub struct Database(pub r2d2::PooledConnection<ConnectionManager<PgConnection>>);
-
-impl<'a, 'r> FromRequest<'a, 'r> for Database {
-    type Error = ();
-
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<Database, Self::Error> {
-        let pool = request.guard::<State<Pool>>()?;
-        match pool.get() {
-            Ok(conn) => Outcome::Success(Database(conn)),
-            Err(_) => Outcome::Failure((Status::ServiceUnavailable, ())),
-        }
-    }
-}
 
 impl Deref for Database {
     type Target = PgConnection;
@@ -33,7 +18,7 @@ impl Deref for Database {
     }
 }
 
-type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 pub fn setup(database_url: &str) -> Result<Pool, String> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);

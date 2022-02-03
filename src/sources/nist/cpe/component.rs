@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Component {
@@ -21,15 +22,19 @@ impl Default for Component {
     }
 }
 
-impl Component {
-    pub fn from_str(val: &str) -> Result<Self, String> {
+impl FromStr for Component {
+    type Err = String;
+
+    fn from_str(val: &str) -> Result<Self, Self::Err> {
         Ok(match val {
             "*" => Component::Any,
             "-" => Component::NotApplicable,
             _ => Component::Value(val.to_owned()),
         })
     }
+}
 
+impl Component {
     #[allow(dead_code)]
     fn matches(&self, val: &str) -> bool {
         match self {
@@ -83,7 +88,7 @@ mod tests {
         table.insert("foo", Component::Value("foo".to_owned()));
 
         for (s, c) in table {
-            let res = Component::from_str(s);
+            let res = s.parse::<Component>();
             assert!(res.is_ok());
             assert_eq!(c, res.unwrap());
         }

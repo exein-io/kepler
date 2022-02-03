@@ -29,6 +29,10 @@ impl List {
         self.items.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /*
     pub fn collect_unique_products(&self) -> Vec<cpe::Product> {
         let mut products = vec![];

@@ -1,20 +1,21 @@
-use log::error;
-use rocket::response::status::BadRequest;
-use rocket_contrib::json::Json;
-
-use crate::db::{models::CVE, Database};
 use crate::search::{self, Query};
+use actix_web::{web, HttpResponse};
 
-#[post("/search", format = "application/json", data = "<query>")]
-pub fn search(
-    query: Json<Query>,
-    database: Database,
-) -> Result<Json<Vec<CVE>>, BadRequest<String>> {
-    match search::query(&database, &query.into_inner()) {
-        Ok(v) => Ok(Json(v)),
-        Err(e) => {
-            error!("{}", &e);
-            Err(BadRequest(Some(e)))
-        }
-    }
+use super::{
+    error::ApplicationError,
+    utils::{bad_request_body, handle_blocking_error, handle_database_error, ok_to_json},
+    ApplicationContext,
+};
+
+pub async fn search(
+    ctx: web::Data<ApplicationContext>,
+    query: web::Json<Query>,
+) -> Result<HttpResponse, ApplicationError> {
+    web::block(move || {
+        let database = ctx.get_database().map_err(handle_database_error)?;
+        search::query(&database, &query.into_inner()).map_err(bad_request_body)
+    })
+    .await
+    .map_err(handle_blocking_error)?
+    .map(ok_to_json)
 }

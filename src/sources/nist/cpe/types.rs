@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -21,8 +21,10 @@ impl TryFrom<&str> for Type {
     }
 }
 
-impl Type {
-    pub fn from_str(val: &str) -> Result<Self, String> {
+impl FromStr for Type {
+    type Err = String;
+
+    fn from_str(val: &str) -> Result<Self, Self::Err> {
         if val == "ANY" {
             return Ok(Self::Any);
         }
@@ -54,13 +56,13 @@ mod tests {
         table.insert("a", Type::Application);
 
         for (s, t) in table {
-            let res = Type::from_str(s);
+            let res = s.parse::<Type>();
             assert_eq!(t, res.unwrap());
         }
     }
 
     #[test]
     fn can_detect_invalid_strings() {
-        assert!(Type::from_str("troll").is_err());
+        assert!("troll".parse::<Type>().is_err());
     }
 }
