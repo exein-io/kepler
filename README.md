@@ -22,7 +22,6 @@ Kepler is a vulnerability database and lookup store and API currently utilising 
 ### Pre-requisites
 
 * `docker`;
-* `rust nightly >= 1.58.1`;
 * (optional) `python 3.x`.
 
 ### Build & run

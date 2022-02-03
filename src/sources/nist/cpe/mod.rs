@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, str::FromStr};
 
 use serde::Serialize;
 use version_compare::CompOp;
@@ -38,8 +38,10 @@ impl TryFrom<&str> for CPE23 {
     }
 }
 
-impl CPE23 {
-    pub fn from_str(val: &str) -> Result<Self, String> {
+impl FromStr for CPE23 {
+    type Err = String;
+
+    fn from_str(val: &str) -> Result<Self, Self::Err> {
         let mut iter = val.splitn(13, ':');
         let (
             cpe,
@@ -103,7 +105,9 @@ impl CPE23 {
             other,
         })
     }
+}
 
+impl CPE23 {
     #[inline]
     fn normalize_target_software(target_sw: &str) -> String {
         let mut norm = String::new();
@@ -218,7 +222,7 @@ mod tests {
         ];
 
         for s in valid_cpes {
-            let res = CPE23::from_str(s);
+            let res = s.parse::<CPE23>();
             assert!(res.is_ok());
         }
     }
@@ -244,7 +248,7 @@ mod tests {
             "expected cpe v2.3, found v2.2",
         );
         for (s, err) in invalid_cpes {
-            let res = CPE23::from_str(s);
+            let res = s.parse::<CPE23>();
 
             assert!(res.is_err());
             assert_eq!(err, res.err().unwrap());
@@ -277,7 +281,7 @@ mod tests {
         );
 
         for (s, m) in table {
-            let res = CPE23::from_str(s);
+            let res = s.parse::<CPE23>();
             assert!(res.is_ok());
             assert_eq!(m.1, res.unwrap().is_product_match(m.0));
         }
@@ -334,7 +338,7 @@ mod tests {
         );
 
         for (s, m) in table {
-            let res = CPE23::from_str(s);
+            let res = s.parse::<CPE23>();
             assert!(res.is_ok());
             assert_eq!(m.1, res.unwrap().is_version_match(m.0));
         }

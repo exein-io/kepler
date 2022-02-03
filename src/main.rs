@@ -1,20 +1,10 @@
-#[macro_use]
-extern crate diesel;
-extern crate r2d2;
-extern crate r2d2_diesel;
-
 use clap::{App, AppSettings, Arg};
 use env_logger::Env;
-use lazy_static::lazy_static;
 use log::info;
 use std::fs;
 use std::path::PathBuf;
 
-mod api;
-mod db;
-mod search;
-mod sources;
-mod utils;
+use kepler::{api, sources};
 
 fn import_nist(matches: &clap::ArgMatches) {
     let data_path = PathBuf::from(matches.value_of("data").unwrap());
@@ -49,7 +39,7 @@ fn import_npm(matches: &clap::ArgMatches) {
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
     let matches = App::new("nvdio")
-        .version(crate::version())
+        .version(kepler::version())
         .about("Kepler vulnerability database search engine")
         .setting(AppSettings::DisableHelpSubcommand)
         .subcommand(
@@ -109,17 +99,4 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     Ok(())
-}
-
-fn version() -> &'static str {
-    #[cfg(debug_assertions)]
-    lazy_static! {
-        static ref VERSION: String = format!("{}+dev", env!("CARGO_PKG_VERSION"));
-    }
-
-    #[cfg(not(debug_assertions))]
-    lazy_static! {
-        static ref VERSION: String = env!("CARGO_PKG_VERSION").to_string();
-    }
-    &VERSION
 }
