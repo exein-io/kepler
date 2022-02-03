@@ -14,23 +14,32 @@ use crate::db::{self, Database, Pool};
 mod cves;
 mod error;
 mod products;
+mod telemetry;
 mod utils;
 
 pub fn run() -> Result<Server, anyhow::Error> {
     dotenv().ok();
 
+    #[cfg(debug_assertions)]
+    let default_env_filter = "debug";
+    #[cfg(not(debug_assertions))]
+    let default_env_filter = "info";
+
+    let subscriber = telemetry::get_subscriber(default_env_filter.into());
+    telemetry::init_subscriber(subscriber);
+
     let database_url = env::var("DATABASE_URL").expect("Can't find DATABASE_URL env variable");
     let host = env::var("KEPLER_ADDRESS")
         .map_err(|_| "Invalid or missing custom address")
         .unwrap_or_else(|err| {
-            println!("{}. Using default 0.0.0.0", err);
+            log::warn!("{}. Using default 0.0.0.0", err);
             "0.0.0.0".to_string()
         });
     let port = env::var("KEPLER_PORT")
         .map_err(|_| "Invalid or missing custom port")
         .and_then(|s| s.parse::<u16>().map_err(|_| "Failed to parse custom port"))
         .unwrap_or_else(|err| {
-            println!("{}. Using default 8000", err);
+            log::warn!("{}. Using default 8000", err);
             8000
         });
 
