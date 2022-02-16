@@ -1,32 +1,27 @@
-use std::env;
 use std::fs;
 use std::path::Path;
 
-use dotenv::dotenv;
+use anyhow::{anyhow, bail, Result};
 use log::info;
 use regex::Regex;
 
 use super::{Advisories, SOURCE_NAME};
 
-use crate::db;
+use crate::db::{self, Pool};
 use crate::utils::download_to_file;
 
-fn process_file(file_path: &Path) -> Result<(u32, bool), String> {
+fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
     info!("processing {} ...", file_path.display());
 
     let mut num_imported = 0;
-    let json = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+    let json = fs::read_to_string(&file_path)?;
 
-    let advisories: Advisories = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    let advisories: Advisories = serde_json::from_str(&json)?;
 
-    let database_url = env::var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL environment variable has not specified.")?;
-    let pool = db::setup(&database_url)?;
-    let database = db::Database(pool.get().unwrap());
+    let database = db::Database(pool.get()?);
 
-    let tagged_refs_parser =
-        Regex::new(r"\[(?P<tag>[^\]]+)\]\((?P<url>[^\)]+)\)").map_err(|e| e.to_string())?;
-    let url_refs_parser = Regex::new(r"-\s+(?P<url>[^\s]+)").map_err(|e| e.to_string())?;
+    let tagged_refs_parser = Regex::new(r"\[(?P<tag>[^\]]+)\]\((?P<url>[^\)]+)\)")?;
+    let url_refs_parser = Regex::new(r"-\s+(?P<url>[^\s]+)")?;
 
     for adv in advisories.objects {
         // since we don't have a CVE, we need to build a unique identifier of some sort
@@ -42,12 +37,12 @@ fn process_file(file_path: &Path) -> Result<(u32, bool), String> {
 
         if adv.cves.is_empty() {
             // no assigned CVEs yet, import
-            let object_json = serde_json::to_string(&adv).map_err(|e| e.to_string())?;
+            let object_json = serde_json::to_string(&adv)?;
             let object_id = match database.create_object_if_not_exist(db::models::NewObject::with(
                 pseudo_cve.clone(),
                 object_json.clone(),
             )) {
-                Err(e) => return Err(e),
+                Err(e) => bail!(e),
                 Ok(id) => id,
             };
 
@@ -86,7 +81,7 @@ fn process_file(file_path: &Path) -> Result<(u32, bool), String> {
                 Some(object_id),
             );
             match database.create_cve_if_not_exist(new_cve) {
-                Err(e) => return Err(e),
+                Err(e) => bail!(e),
                 Ok(true) => num_imported += 1,
                 Ok(false) => {}
             }
@@ -99,7 +94,7 @@ fn process_file(file_path: &Path) -> Result<(u32, bool), String> {
             // it in case we previously imported when it didn't have any, since now we're
             // supposed to have the actual CVE from NVD.
             match database.delete_cve("@npm", &product, &pseudo_cve) {
-                Err(e) => return Err(e),
+                Err(e) => bail!(e),
                 Ok(0) => {}
                 Ok(_) => {
                     info!(
@@ -114,9 +109,7 @@ fn process_file(file_path: &Path) -> Result<(u32, bool), String> {
     Ok((num_imported, advisories.urls.next.is_some()))
 }
 
-pub fn run(recent_only: bool, data_path: &Path) -> Result<u32, String> {
-    dotenv().ok();
-
+pub fn run(pool: &Pool, recent_only: bool, data_path: &Path) -> Result<u32> {
     let mut num_imported = 0;
 
     if recent_only {
@@ -126,9 +119,10 @@ pub fn run(recent_only: bool, data_path: &Path) -> Result<u32, String> {
         download_to_file(
             "https://registry.npmjs.org/-/npm/v1/security/advisories?perPage=100&page=1",
             &file_path,
-        )?;
+        )
+        .map_err(|err| anyhow!(err))?;
 
-        let res = process_file(&file_path)?;
+        let res = process_file(pool, &file_path)?;
         num_imported = res.0;
     } else {
         // download and import all available records
@@ -141,9 +135,9 @@ pub fn run(recent_only: bool, data_path: &Path) -> Result<u32, String> {
                     "https://registry.npmjs.org/-/npm/v1/security/advisories?perPage=100&page={}",
                     page
                 );
-                download_to_file(&url, &file_path)?;
+                download_to_file(&url, &file_path).map_err(|err| anyhow!(err))?;
             }
-            let res = process_file(&file_path)?;
+            let res = process_file(pool, &file_path)?;
             num_imported += res.0;
 
             if res.1 {
