@@ -1,33 +1,27 @@
-use std::env;
 use std::path::Path;
 
-use dotenv::dotenv;
+use anyhow::{anyhow, bail, Result};
 use log::info;
 
 use super::{cve, SOURCE_NAME};
-use crate::db;
+use crate::db::{self, Pool};
 
-pub fn run(year: &str, data_path: &Path, fresh: bool) -> Result<u32, String> {
-    let (_, mut cve_list) = cve::setup(year, data_path, fresh)?;
+pub fn run(pool: &Pool, year: &str, data_path: &Path, fresh: bool) -> Result<u32> {
+    let (_, mut cve_list) = cve::setup(year, data_path, fresh).map_err(|err| anyhow!(err))?;
 
-    dotenv().ok();
-
-    let database_url = env::var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL environment variable has not specified.")?;
-    let pool = db::setup(&database_url)?;
-    let database = db::Database(pool.get().unwrap());
+    let database = db::Database(pool.get()?);
 
     info!("connected to database, importing records ...");
 
     let mut num_imported = 0;
 
     for item in &mut cve_list.items {
-        let json = serde_json::to_string(item).map_err(|e| e.to_string())?;
+        let json = serde_json::to_string(item)?;
 
         let object_id = match database
             .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))
         {
-            Err(e) => return Err(e),
+            Err(e) => bail!(e),
             Ok(id) => id,
         };
 
@@ -53,7 +47,7 @@ pub fn run(year: &str, data_path: &Path, fresh: bool) -> Result<u32, String> {
                 Some(object_id),
             );
             match database.create_cve_if_not_exist(new_cve) {
-                Err(e) => return Err(e),
+                Err(e) => bail!(e),
                 Ok(true) => num_imported += 1,
                 Ok(false) => {}
             }

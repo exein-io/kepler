@@ -6,10 +6,10 @@ use actix_web::{
     web::{self, Data},
     App, HttpResponse, HttpServer,
 };
-use dotenv::dotenv;
+
 use serde::Serialize;
 
-use crate::db::{self, Database, Pool};
+use crate::db::{Database, Pool};
 
 mod cves;
 mod error;
@@ -17,18 +17,9 @@ mod products;
 mod telemetry;
 mod utils;
 
-pub fn run() -> Result<Server, anyhow::Error> {
-    dotenv().ok();
+pub use telemetry::init_logger;
 
-    #[cfg(debug_assertions)]
-    let default_env_filter = "debug";
-    #[cfg(not(debug_assertions))]
-    let default_env_filter = "info";
-
-    let subscriber = telemetry::get_subscriber(default_env_filter.into());
-    telemetry::init_subscriber(subscriber);
-
-    let database_url = env::var("DATABASE_URL").expect("Can't find DATABASE_URL env variable");
+pub fn run(pool: Pool) -> Result<Server, anyhow::Error> {
     let host = env::var("KEPLER_ADDRESS")
         .map_err(|_| "Invalid or missing custom address")
         .unwrap_or_else(|err| {
@@ -42,8 +33,6 @@ pub fn run() -> Result<Server, anyhow::Error> {
             log::warn!("{}. Using default 8000", err);
             8000
         });
-
-    let pool = db::setup(&database_url).map_err(anyhow::Error::msg)?;
 
     let application_ctx = Data::new(ApplicationContext { pool });
 

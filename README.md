@@ -17,36 +17,35 @@ Kepler is a vulnerability database and lookup store and API currently utilising 
 
 <br/>
 
-## Setup
+# Setup
 
-### Pre-requisites
+## Docker (recommended)
 
-* `docker`;
-* (optional) `python 3.x`.
-
-### Build & run
+We provide a docker bundle with `kepler`, dedicated PostgreSQL database and [Ofelia](https://github.com/mcuadros/ofelia) as job scheduler for continuous update
 
 ```bash
 docker compose build
 docker compose up
 ```
 
-While the database is running, perform the database migrations (rust and `libpg-dev` required):
+### Database migration notes
+When the application starts checks for pending database migrations and automatically applies them. Remove the `--migrate` option to stop when a pending migration is detected
 
-```bash
-export DATABASE_URL=postgres://kepler:kepler@localhost:5432/kepler
+## Build from sources
 
-cargo install diesel_cli --no-default-features --features "postgres"
-diesel migration run	
+Alternatively you can build `kepler` from sources. To build you need `rust`, `cargo` and `libpg-dev` (or equivalent PostgreSQL library for your Linux distribution)
+
+```
+cargo build --release
 ```
 
-The system will automatically fetch and import new records every 3 hours, while historical data must be imported manually (see [importing data sources](#data-sources)).
+# Data sources
 
-## Data sources
+The system will automatically fetch and import new records every 3 hours if you use our [bundle](#docker-recommended), while historical data must be imported manually.
 
 Kepler currently supports two data sources, [National Vulnerability Database](https://nvd.nist.gov/) and [NPM Advisories](https://npmjs.org/). You can import the data sources historically as follows.
 
-#### NIST Data
+## NIST Data
 
 To import NIST records from all available years (2002 to 2022):
 
@@ -59,7 +58,7 @@ for year in $(seq 2002 2022); do
 done 
 ```
 
-#### NPM Data
+## NPM Data
 
 To import all available NPM records:
 
@@ -72,11 +71,11 @@ docker run -v $(pwd)/data:/data \
 
 The system will automatically fetch and import new records records every 3 hours. 
 
-## APIs
+# APIs
 
 There are two primary APIs as of right now — the `product` API and the `cve` API detailed below.
 
-#### Products API
+## Products API
 
 Products can be listed:
 
@@ -96,7 +95,7 @@ Or searched:
 curl http://localhost:8000/products/search/iphone
 ```
 
-#### CVEs API
+## CVEs API
 
 To use the vulnerabilities search API via cURL (prepend `node-` to the product name in order to search for NPM specific packages):
 
@@ -110,7 +109,7 @@ curl \
 
 Responses are cached in memory with a LRU limit of 4096 elements.
 
-#### Utility
+# Python CLI
 
 To get test and visualize the API results quickly you can use the Python utility wrappers.
 

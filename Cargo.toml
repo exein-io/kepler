@@ -31,3 +31,4 @@ tracing = "0.1.29"
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 tracing-actix-web = "0.5.0-rc.1"
 anyhow = "1.0.53"
+diesel_migrations = "1.4.0"

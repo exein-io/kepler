@@ -20,9 +20,10 @@ impl Deref for Database {
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-pub fn setup(database_url: &str) -> Result<Pool, String> {
+pub fn setup(database_url: &str) -> Result<Pool, anyhow::Error> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);
-    Pool::new(manager).map_err(|e| e.to_string())
+    let pool = Pool::new(manager)?;
+    Ok(pool)
 }
 
 impl Database {
