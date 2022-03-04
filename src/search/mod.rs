@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use log::info;
 use lru::LruCache;
 use serde::Deserialize;
-use version_compare::{CompOp, VersionCompare};
+use version_compare::Cmp;
 
 use crate::db::{models, Database};
 use crate::sources::{nist, npm, Source};
@@ -26,7 +26,7 @@ pub fn query(db: &Database, query: &Query) -> Result<Vec<models::CVE>, String> {
 
     // validate version string
     if let Some(ver) = &query.version {
-        if VersionCompare::compare_to(ver, "1.0.0", &CompOp::Ne).is_err() {
+        if version_compare::compare_to(ver, "1.0.0", Cmp::Ne).is_err() {
             return Err("invalid version string".to_owned());
         }
     }

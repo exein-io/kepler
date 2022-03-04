@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use serde::{Deserialize, Serialize};
-use version_compare::CompOp;
+use version_compare::Cmp;
 
 use crate::sources::nist::cpe;
 use crate::utils::version_cmp;
@@ -34,25 +34,25 @@ impl Match {
 
     pub fn version_range_matches(&self, ver: &str) -> bool {
         if let Some(start_inc) = &self.version_start_including {
-            if !version_cmp(ver, start_inc, &CompOp::Ge) {
+            if !version_cmp(ver, start_inc, Cmp::Ge) {
                 return false;
             }
         }
 
         if let Some(start_exc) = &self.version_start_excluding {
-            if !version_cmp(ver, start_exc, &CompOp::Gt) {
+            if !version_cmp(ver, start_exc, Cmp::Gt) {
                 return false;
             }
         }
 
         if let Some(end_inc) = &self.version_end_including {
-            if !version_cmp(ver, end_inc, &CompOp::Le) {
+            if !version_cmp(ver, end_inc, Cmp::Le) {
                 return false;
             }
         }
 
         if let Some(end_exc) = &self.version_end_excluding {
-            if !version_cmp(ver, end_exc, &CompOp::Lt) {
+            if !version_cmp(ver, end_exc, Cmp::Lt) {
                 return false;
             }
         }
