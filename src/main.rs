@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{App, AppSettings, Arg};
+use clap::{Arg, Command};
 use dotenv::dotenv;
 use env_logger::Env;
 use std::{env, fs, path::PathBuf};
@@ -11,10 +11,10 @@ use kepler::{
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    let matches = App::new("nvdio")
+    let matches = Command::new("nvdio")
         .version(kepler::version())
         .about("Kepler vulnerability database search engine")
-        .setting(AppSettings::DisableHelpSubcommand)
+        .disable_help_subcommand(true)
         .arg(
             Arg::new("migrate")
                 .short('m')
@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
                 .help("Migrate database"),
         )
         .subcommand(
-            App::new("import_nist")
+            Command::new("import_nist")
                 .about("imports the specified year of CVE from the NIST data feed")
                 .arg(
                     Arg::new("year")
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
                 ),
         )
         .subcommand(
-            App::new("import_npm")
+            Command::new("import_npm")
                 .about("imports vulnerabilities from the registry.npmjs.org data feed")
                 .arg(
                     Arg::new("recent")
