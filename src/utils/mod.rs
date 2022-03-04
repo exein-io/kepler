@@ -3,7 +3,7 @@ use std::path::Path;
 
 use flate2::read::GzDecoder;
 use log::{info, warn};
-use version_compare::{CompOp, VersionCompare};
+use version_compare::Cmp;
 
 pub fn download_to_file(url: &str, file_name: &Path) -> Result<(), String> {
     info!("downloading {} to {} ...", url, file_name.display(),);
@@ -43,8 +43,8 @@ pub fn gunzip(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn version_cmp(a: &str, b: &str, operator: &CompOp) -> bool {
-    if let Ok(res) = VersionCompare::compare_to(a, b, operator) {
+pub fn version_cmp(a: &str, b: &str, operator: Cmp) -> bool {
+    if let Ok(res) = version_compare::compare_to(a, b, operator) {
         return res;
     } else {
         warn!(

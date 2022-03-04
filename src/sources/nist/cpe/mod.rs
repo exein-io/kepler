@@ -1,7 +1,7 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use serde::Serialize;
-use version_compare::CompOp;
+use version_compare::Cmp;
 
 pub mod component;
 pub mod types;
@@ -156,7 +156,7 @@ impl CPE23 {
             self.version.to_string()
         };
 
-        version_cmp(version, &my_version, &CompOp::Eq)
+        version_cmp(version, &my_version, Cmp::Eq)
     }
 }
 

@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use version_compare::CompOp;
+use version_compare::Cmp;
 
 use crate::search::Query;
 use crate::utils::version_cmp;
@@ -91,7 +91,7 @@ impl Advisory {
                         op => op,
                     };
                     // validate it
-                    match CompOp::from_sign(op_str) {
+                    match Cmp::from_sign(op_str) {
                         Err(_) => {
                             warn!(
                                 "can't parse npm version operator '{}' of advisory {}: {}",
@@ -102,7 +102,7 @@ impl Advisory {
                         }
                         Ok(op) => {
                             // execute the comparision
-                            if !version_cmp(version, &captures["version"], &op) {
+                            if !version_cmp(version, &captures["version"], op) {
                                 passed = false;
                                 break;
                             }
