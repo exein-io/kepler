@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
     let pool = {
         let database_url = env::var("DATABASE_URL")
             .context("DATABASE_URL environment variable has not specified.")?;
-        db::setup(&database_url).context("Cannot connect to database")?
+        db::Pool::new(&database_url).context("Cannot connect to database")?
     };
 
     // Setup logger
