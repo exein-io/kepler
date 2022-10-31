@@ -8,7 +8,7 @@ use regex::Regex;
 use super::{Advisories, SOURCE_NAME};
 
 use crate::db::{self, Pool};
-use crate::utils::download_to_file;
+use crate::sources::download_to_file;
 
 fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
     info!("processing {} ...", file_path.display());

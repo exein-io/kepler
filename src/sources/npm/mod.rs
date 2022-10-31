@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
 use crate::search::Query;
-use crate::utils::version_cmp;
+use crate::sources::version_cmp;
 
 pub mod import;
 

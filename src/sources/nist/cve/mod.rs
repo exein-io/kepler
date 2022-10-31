@@ -1,10 +1,11 @@
-use std::fs;
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use flate2::read::GzDecoder;
 use log::info;
 
-use crate::utils;
+use crate::sources::download_to_file;
 
 pub mod item;
 pub mod list;
@@ -39,11 +40,11 @@ pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, list
                 "https://nvd.nist.gov/feeds/json/cve/{}/nvdcve-{}-{}.json.gz",
                 VERSION, VERSION, year
             );
-            utils::download_to_file(&url, &gzip_file_name)?;
+            download_to_file(&url, &gzip_file_name)?;
         } else {
             info!("found {}", gzip_file_name.display());
         }
-        utils::gunzip(&gzip_file_name, &file_name)?;
+        gunzip(&gzip_file_name, &file_name)?;
     } else {
         info!("found {}", file_name.display());
     }
@@ -56,4 +57,21 @@ pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, list
     info!("loaded {} CVEs in {:?}", cve_list.len(), start.elapsed());
 
     Ok((file_name, cve_list))
+}
+
+fn gunzip(from: &Path, to: &Path) -> Result<(), String> {
+    log::info!("extracting {} to {} ...", from.display(), to.display());
+
+    let source =
+        File::open(from).map_err(|e| format!("could not open {}: {}", from.display(), e))?;
+
+    let mut archive = std::io::BufReader::new(GzDecoder::new(source));
+
+    let mut dest =
+        File::create(to).map_err(|e| format!("could not create {}: {}", to.display(), e))?;
+
+    std::io::copy(&mut archive, &mut dest)
+        .map_err(|e| format!("could not extract {}: {}", from.display(), e))?;
+
+    Ok(())
 }

@@ -6,9 +6,10 @@ use version_compare::Cmp;
 pub mod component;
 pub mod types;
 
-use crate::utils::version_cmp;
 use component::Component;
 use types::Type;
+
+use crate::sources::version_cmp;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Product {

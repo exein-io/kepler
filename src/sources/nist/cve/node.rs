@@ -3,8 +3,7 @@ use std::convert::TryFrom;
 use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
-use crate::sources::nist::cpe;
-use crate::utils::version_cmp;
+use crate::sources::{nist::cpe, version_cmp};
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Match {

@@ -9,7 +9,6 @@ pub mod api;
 pub mod db;
 pub mod search;
 pub mod sources;
-pub mod utils;
 
 pub fn version() -> &'static str {
     #[cfg(debug_assertions)]
