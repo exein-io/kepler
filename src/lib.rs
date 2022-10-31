@@ -1,14 +1,6 @@
-#[macro_use]
-extern crate diesel;
-extern crate r2d2;
-extern crate r2d2_diesel;
-
 use lazy_static::lazy_static;
 
 pub mod api;
-pub mod db;
-pub mod search;
-pub mod sources;
 
 pub fn version() -> &'static str {
     #[cfg(debug_assertions)]

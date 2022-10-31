@@ -1,14 +1,13 @@
 use anyhow::{Context, Result};
 use clap::{Arg, Command};
-use dotenv::dotenv;
-use env_logger::Env;
-use std::{env, fs, path::PathBuf};
-
-use kepler::{
-    api::{self, ApiConfig},
+use domain_db::{
     db,
     sources::{nist, npm},
 };
+use env_logger::Env;
+use std::{env, fs, path::PathBuf};
+
+use kepler::api::{self, ApiConfig};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -66,8 +65,6 @@ async fn main() -> Result<()> {
                 ),
         )
         .get_matches();
-
-    dotenv().ok();
 
     // Database pool connection
     let pool = {
