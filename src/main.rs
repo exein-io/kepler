@@ -11,7 +11,7 @@ use kepler::{
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    let matches = Command::new("nvdio")
+    let matches = Command::new("kepler")
         .version(kepler::version())
         .about("Kepler vulnerability database search engine")
         .disable_help_subcommand(true)
