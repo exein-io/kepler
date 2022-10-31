@@ -11,7 +11,7 @@ use types::Type;
 
 use crate::sources::version_cmp;
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Product {
     pub vendor: String,
     pub product: String,

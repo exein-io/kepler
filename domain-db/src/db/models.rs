@@ -37,7 +37,7 @@ impl NewObject {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct Reference {
     pub url: String,
     pub tags: Vec<String>,
