@@ -5,7 +5,8 @@ use env_logger::Env;
 use std::{env, fs, path::PathBuf};
 
 use kepler::{
-    api, db,
+    api::{self, ApiConfig},
+    db,
     sources::{nist, npm},
 };
 
@@ -140,7 +141,25 @@ async fn main() -> Result<()> {
 
             log::info!("{report}");
         }
-        None => api::run(pool)?.await?,
+        None => {
+            let host = env::var("KEPLER_ADDRESS")
+                .map_err(|_| "Invalid or missing custom address")
+                .unwrap_or_else(|err| {
+                    log::warn!("{}. Using default 0.0.0.0", err);
+                    "0.0.0.0".to_string()
+                });
+            let port = env::var("KEPLER_PORT")
+                .map_err(|_| "Invalid or missing custom port")
+                .and_then(|s| s.parse::<u16>().map_err(|_| "Failed to parse custom port"))
+                .unwrap_or_else(|err| {
+                    log::warn!("{}. Using default 8000", err);
+                    8000
+                });
+
+            let api_config = ApiConfig { host, port, pool };
+
+            api::run(api_config)?.await?
+        }
     }
 
     Ok(())
