@@ -5,8 +5,7 @@ use crate::{
 use actix_web::web::{self, Json};
 
 use super::{
-    error::ApplicationError,
-    utils::{bad_request_body, handle_blocking_error, handle_database_error},
+    error::{bad_request_body, handle_blocking_error, handle_database_error, ApplicationError},
     ApplicationContext,
 };
 
