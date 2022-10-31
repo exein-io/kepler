@@ -41,11 +41,6 @@ pub struct DatabaseError {
     source: r2d2::Error,
 }
 
-pub fn setup(database_url: &str) -> Result<Pool, anyhow::Error> {
-    let pool = Pool::new(database_url)?;
-    Ok(pool)
-}
-
 impl Database {
     pub fn create_object_if_not_exist(&self, values: models::NewObject) -> Result<i32, String> {
         use schema::objects::dsl::*;
