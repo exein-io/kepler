@@ -2,7 +2,7 @@
 name = "kepler"
 version = "1.0.0"
 authors = ["Exein <engineering@exein.io>"]
-edition = "2018"
+edition = "2021"
 
 
 [dependencies]
