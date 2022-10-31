@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use actix_web::{http::StatusCode, HttpResponse, HttpResponseBuilder};
+use actix_web::{error::BlockingError, http::StatusCode, HttpResponse, HttpResponseBuilder};
 
 #[derive(Debug)]
 pub enum ApplicationError {
@@ -33,4 +33,24 @@ impl actix_web::error::ResponseError for ApplicationError {
             Self::ServiceUnavailable => StatusCode::GATEWAY_TIMEOUT,
         }
     }
+}
+
+pub fn handle_database_error(error: r2d2::Error) -> ApplicationError {
+    log::error!("{}", error);
+    ApplicationError::ServiceUnavailable
+}
+
+pub fn handle_blocking_error(error: BlockingError) -> ApplicationError {
+    log::error!("{}", error);
+    ApplicationError::ServiceUnavailable
+}
+
+pub fn internal_server_error(error: String) -> ApplicationError {
+    log::error!("{}", error);
+    ApplicationError::InternalServerError
+}
+
+pub fn bad_request_body(error: String) -> ApplicationError {
+    log::error!("{}", error);
+    ApplicationError::BadRequest(error)
 }

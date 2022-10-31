@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use crate::db::models::Product;
 
 use super::{
-    error::ApplicationError,
-    utils::{
+    error::{
         bad_request_body, handle_blocking_error, handle_database_error, internal_server_error,
+        ApplicationError,
     },
     ApplicationContext,
 };

@@ -13,7 +13,6 @@ mod cves;
 mod error;
 mod products;
 mod telemetry;
-mod utils;
 
 pub use telemetry::init_logger;
 
