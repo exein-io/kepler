@@ -4,7 +4,7 @@ use actix_web::web::{self, Json};
 use lazy_static::{__Deref, lazy_static};
 use lru::LruCache;
 
-use crate::{
+use domain_db::{
     db::models::{self, CVE},
     search::{self, CveCache, Query},
 };

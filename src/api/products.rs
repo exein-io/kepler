@@ -1,7 +1,7 @@
 use actix_web::web::{self, Json};
 use std::collections::HashMap;
 
-use crate::db::models::Product;
+use domain_db::db::models::Product;
 
 use super::{
     error::{

@@ -3,6 +3,7 @@ use std::ops::Deref;
 use diesel::insert_into;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use r2d2::PooledConnection;
 use r2d2_diesel::ConnectionManager;
 
 pub mod models;
@@ -18,11 +19,30 @@ impl Deref for Database {
     }
 }
 
-pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub struct Pool(r2d2::Pool<ConnectionManager<PgConnection>>);
+
+impl Pool {
+    pub fn new(database_url: &str) -> Result<Self, DatabaseError> {
+        let manager = ConnectionManager::<PgConnection>::new(database_url);
+        let pool = r2d2::Pool::new(manager)?;
+        Ok(Self(pool))
+    }
+
+    pub fn get(&self) -> Result<PooledConnection<ConnectionManager<PgConnection>>, DatabaseError> {
+        let pooled_connection = self.0.get()?;
+        Ok(pooled_connection)
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Database error.")]
+pub struct DatabaseError {
+    #[from]
+    source: r2d2::Error,
+}
 
 pub fn setup(database_url: &str) -> Result<Pool, anyhow::Error> {
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
-    let pool = Pool::new(manager)?;
+    let pool = Pool::new(database_url)?;
     Ok(pool)
 }
 

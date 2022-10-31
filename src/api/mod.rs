@@ -7,7 +7,7 @@ use actix_web::{
 
 use serde::Serialize;
 
-use crate::db::{Database, Pool};
+use domain_db::db::{Database, DatabaseError, Pool};
 
 mod cves;
 mod error;
@@ -54,7 +54,7 @@ pub struct ApplicationContext {
 }
 
 impl ApplicationContext {
-    pub fn get_database(&self) -> Result<Database, r2d2::Error> {
+    pub fn get_database(&self) -> Result<Database, DatabaseError> {
         let pool = self.pool.get()?;
         Ok(Database(pool))
     }
