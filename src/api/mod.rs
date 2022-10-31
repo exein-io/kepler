@@ -3,8 +3,8 @@ use std::env;
 use actix_cors::Cors;
 use actix_web::{
     dev::Server,
-    web::{self, Data},
-    App, HttpResponse, HttpServer,
+    web::{self, Data, Json},
+    App, HttpServer,
 };
 
 use serde::Serialize;
@@ -74,8 +74,8 @@ struct HealthCheck<'a> {
     version: &'a str,
 }
 
-async fn health_check() -> HttpResponse {
-    HttpResponse::Ok().json(HealthCheck {
+async fn health_check() -> Json<HealthCheck<'static>> {
+    Json(HealthCheck {
         version: crate::version(),
     })
 }

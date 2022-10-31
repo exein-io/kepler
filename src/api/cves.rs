@@ -1,21 +1,25 @@
-use crate::search::{self, Query};
-use actix_web::{web, HttpResponse};
+use crate::{
+    db::models::CVE,
+    search::{self, Query},
+};
+use actix_web::web::{self, Json};
 
 use super::{
     error::ApplicationError,
-    utils::{bad_request_body, handle_blocking_error, handle_database_error, ok_to_json},
+    utils::{bad_request_body, handle_blocking_error, handle_database_error},
     ApplicationContext,
 };
 
 pub async fn search(
     ctx: web::Data<ApplicationContext>,
-    query: web::Json<Query>,
-) -> Result<HttpResponse, ApplicationError> {
-    web::block(move || {
+    query: Json<Query>,
+) -> Result<Json<Vec<CVE>>, ApplicationError> {
+    let cves = web::block(move || {
         let database = ctx.get_database().map_err(handle_database_error)?;
         search::query(&database, &query.into_inner()).map_err(bad_request_body)
     })
     .await
-    .map_err(handle_blocking_error)?
-    .map(ok_to_json)
+    .map_err(handle_blocking_error)??;
+
+    Ok(Json(cves))
 }

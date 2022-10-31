@@ -1,11 +1,6 @@
-use actix_web::{error::BlockingError, HttpResponse};
-use serde::Serialize;
+use actix_web::error::BlockingError;
 
 use super::error::ApplicationError;
-
-pub fn ok_to_json<T: Serialize>(object: T) -> HttpResponse {
-    HttpResponse::Ok().json(object)
-}
 
 pub fn handle_database_error(error: r2d2::Error) -> ApplicationError {
     log::error!("{}", error);
