@@ -42,13 +42,13 @@ pub fn run(pool: Pool) -> Result<Server, anyhow::Error> {
             .route("/health_check", web::get().to(health_check))
             .service(
                 web::scope("/cve") //
-                    .route("/search", web::post().to(cves::search)), // List of connected agent
+                    .route("/search", web::post().to(cves::search)),
             )
             .service(
                 web::scope("/products") //
-                    .route("/", web::get().to(products::all)) // List of connected agent
-                    .route("/by_vendor", web::get().to(products::by_vendor)) // Agent detail
-                    .route("/search/{query}", web::get().to(products::search)), // Monitor agent
+                    .route("/", web::get().to(products::all))
+                    .route("/by_vendor", web::get().to(products::by_vendor))
+                    .route("/search/{query}", web::get().to(products::search)),
             )
             .wrap(Cors::permissive())
             .wrap(tracing_actix_web::TracingLogger::default())
