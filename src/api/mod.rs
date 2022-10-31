@@ -1,5 +1,3 @@
-use std::env;
-
 use actix_cors::Cors;
 use actix_web::{
     dev::Server,
@@ -19,22 +17,16 @@ mod utils;
 
 pub use telemetry::init_logger;
 
-pub fn run(pool: Pool) -> Result<Server, anyhow::Error> {
-    let host = env::var("KEPLER_ADDRESS")
-        .map_err(|_| "Invalid or missing custom address")
-        .unwrap_or_else(|err| {
-            log::warn!("{}. Using default 0.0.0.0", err);
-            "0.0.0.0".to_string()
-        });
-    let port = env::var("KEPLER_PORT")
-        .map_err(|_| "Invalid or missing custom port")
-        .and_then(|s| s.parse::<u16>().map_err(|_| "Failed to parse custom port"))
-        .unwrap_or_else(|err| {
-            log::warn!("{}. Using default 8000", err);
-            8000
-        });
+pub struct ApiConfig {
+    pub host: String,
+    pub port: u16,
+    pub pool: Pool,
+}
 
-    let application_ctx = Data::new(ApplicationContext { pool });
+pub fn run(api_config: ApiConfig) -> Result<Server, anyhow::Error> {
+    let application_ctx = Data::new(ApplicationContext {
+        pool: api_config.pool,
+    });
 
     let server = HttpServer::new(move || {
         App::new()
@@ -53,7 +45,7 @@ pub fn run(pool: Pool) -> Result<Server, anyhow::Error> {
             .wrap(Cors::permissive())
             .wrap(tracing_actix_web::TracingLogger::default())
     })
-    .bind((host, port))?
+    .bind((api_config.host, api_config.port))?
     .run();
     Ok(server)
 }
