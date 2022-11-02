@@ -47,7 +47,7 @@ fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
             };
 
             // parse references
-            let mut refs = db::models::References::default();
+            let mut refs = Vec::new();
             if !adv.references.is_empty() {
                 for caps in tagged_refs_parser.captures_iter(&adv.references) {
                     refs.push(db::models::Reference {
