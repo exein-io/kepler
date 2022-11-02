@@ -6,9 +6,9 @@ use diesel::prelude::*;
 use r2d2::PooledConnection;
 use r2d2_diesel::ConnectionManager;
 
+pub mod migrations;
 pub mod models;
 pub mod schema;
-pub mod migrations;
 
 pub struct Database(pub r2d2::PooledConnection<ConnectionManager<PgConnection>>);
 
