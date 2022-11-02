@@ -6,7 +6,7 @@ use lru::LruCache;
 
 use domain_db::{
     db::models::{self, CVE},
-    search::{self, CveCache, Query},
+    db::{CveCache, Query},
 };
 
 use super::{
@@ -43,7 +43,8 @@ pub async fn search(
 ) -> Result<Json<Vec<CVE>>, ApplicationError> {
     let cves = web::block(move || {
         let repository = ctx.get_repository();
-        search::query(repository, &query.into_inner(), Some(CACHE.deref()))
+        repository
+            .query(&query.into_inner(), Some(CACHE.deref()))
             .map_err(bad_request_body)
     })
     .await

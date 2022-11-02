@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::node;
-use crate::search::Query;
+use crate::db::Query;
 use crate::sources::nist::cpe;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
