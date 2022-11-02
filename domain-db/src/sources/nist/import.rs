@@ -25,7 +25,7 @@ pub fn run(pool: &Pool, year: &str, data_path: &Path, fresh: bool) -> Result<u32
             Ok(id) => id,
         };
 
-        let mut refs = db::models::References::default();
+        let mut refs = Vec::new();
         for data in &item.cve.references.reference_data {
             refs.push(db::models::Reference {
                 url: data.url.clone(),

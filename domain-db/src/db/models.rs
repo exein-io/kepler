@@ -43,8 +43,6 @@ pub struct Reference {
     pub tags: Vec<String>,
 }
 
-pub type References = Vec<Reference>;
-
 #[derive(Queryable, Debug, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct CVE {
@@ -62,7 +60,7 @@ pub struct CVE {
     pub score: f64,
     pub severity: String,
     pub vector: Option<String>,
-    pub references: diesel_json::Json<References>,
+    pub references: diesel_json::Json<Vec<Reference>>,
     #[serde(skip_serializing)]
     pub object_id: Option<i32>,
 }
@@ -79,7 +77,7 @@ pub struct NewCVE {
     pub score: f64,
     pub severity: String,
     pub vector: Option<String>,
-    pub references: diesel_json::Json<References>,
+    pub references: diesel_json::Json<Vec<Reference>>,
     pub object_id: Option<i32>,
 }
 
@@ -95,7 +93,7 @@ impl NewCVE {
         score: f64,
         severity: String,
         vector: Option<String>,
-        references: References,
+        references: Vec<Reference>,
         object_id: Option<i32>,
     ) -> Self {
         let references = diesel_json::Json::new(references);
