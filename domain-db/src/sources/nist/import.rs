@@ -4,12 +4,15 @@ use anyhow::{anyhow, bail, Result};
 use log::info;
 
 use super::{cve, SOURCE_NAME};
-use crate::db::{self, Pool};
+use crate::db::{self, PostgresRepository};
 
-pub fn run(pool: &Pool, year: &str, data_path: &Path, fresh: bool) -> Result<u32> {
+pub fn run(
+    repository: &PostgresRepository,
+    year: &str,
+    data_path: &Path,
+    fresh: bool,
+) -> Result<u32> {
     let (_, mut cve_list) = cve::setup(year, data_path, fresh).map_err(|err| anyhow!(err))?;
-
-    let database = db::Database(pool.get()?);
 
     info!("connected to database, importing records ...");
 
@@ -18,7 +21,7 @@ pub fn run(pool: &Pool, year: &str, data_path: &Path, fresh: bool) -> Result<u32
     for item in &mut cve_list.items {
         let json = serde_json::to_string(item)?;
 
-        let object_id = match database
+        let object_id = match repository
             .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))
         {
             Err(e) => bail!(e),
@@ -46,7 +49,7 @@ pub fn run(pool: &Pool, year: &str, data_path: &Path, fresh: bool) -> Result<u32
                 refs.clone(),
                 Some(object_id),
             );
-            match database.create_cve_if_not_exist(new_cve) {
+            match repository.create_cve_if_not_exist(new_cve) {
                 Err(e) => bail!(e),
                 Ok(true) => num_imported += 1,
                 Ok(false) => {}

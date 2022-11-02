@@ -4,10 +4,7 @@ use std::collections::HashMap;
 use domain_db::db::models::Product;
 
 use super::{
-    error::{
-        bad_request_body, handle_blocking_error, handle_database_error, internal_server_error,
-        ApplicationError,
-    },
+    error::{bad_request_body, handle_blocking_error, internal_server_error, ApplicationError},
     ApplicationContext,
 };
 
@@ -15,8 +12,7 @@ pub async fn all(
     ctx: web::Data<ApplicationContext>,
 ) -> Result<Json<Vec<Product>>, ApplicationError> {
     let products = web::block(move || {
-        ctx.get_database()
-            .map_err(handle_database_error)?
+        ctx.get_repository()
             .get_products()
             .map_err(internal_server_error)
     })
@@ -30,8 +26,7 @@ pub async fn by_vendor(
     ctx: web::Data<ApplicationContext>,
 ) -> Result<Json<HashMap<String, Vec<String>>>, ApplicationError> {
     let products = web::block(move || {
-        ctx.get_database()
-            .map_err(handle_database_error)?
+        ctx.get_repository()
             .get_products()
             .map_err(internal_server_error)
     })
@@ -56,8 +51,7 @@ pub async fn search(
     ctx: web::Data<ApplicationContext>,
 ) -> Result<Json<Vec<Product>>, ApplicationError> {
     let products = web::block(move || {
-        ctx.get_database()
-            .map_err(handle_database_error)?
+        ctx.get_repository()
             .search_products(query.as_str())
             .map_err(bad_request_body)
     })

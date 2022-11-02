@@ -7,7 +7,7 @@ use actix_web::{
 
 use serde::Serialize;
 
-use domain_db::db::{Database, DatabaseError, Pool};
+use domain_db::db::PostgresRepository;
 
 mod cves;
 mod error;
@@ -19,12 +19,12 @@ pub use telemetry::init_logger;
 pub struct ApiConfig {
     pub host: String,
     pub port: u16,
-    pub pool: Pool,
+    pub repository: PostgresRepository,
 }
 
 pub fn run(api_config: ApiConfig) -> Result<Server, anyhow::Error> {
     let application_ctx = Data::new(ApplicationContext {
-        pool: api_config.pool,
+        repository: api_config.repository,
     });
 
     let server = HttpServer::new(move || {
@@ -50,13 +50,12 @@ pub fn run(api_config: ApiConfig) -> Result<Server, anyhow::Error> {
 }
 
 pub struct ApplicationContext {
-    pool: Pool,
+    repository: PostgresRepository,
 }
 
 impl ApplicationContext {
-    pub fn get_database(&self) -> Result<Database, DatabaseError> {
-        let pool = self.pool.get()?;
-        Ok(Database(pool))
+    pub fn get_repository(&self) -> &PostgresRepository {
+        &self.repository
     }
 }
 

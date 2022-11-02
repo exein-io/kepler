@@ -66,11 +66,11 @@ async fn main() -> Result<()> {
         )
         .get_matches();
 
-    // Database pool connection
-    let pool = {
+    // Repository
+    let repository = {
         let database_url = env::var("DATABASE_URL")
             .context("DATABASE_URL environment variable has not specified.")?;
-        db::Pool::new(&database_url).context("Cannot connect to database")?
+        db::PostgresRepository::new(&database_url).context("Cannot connect to database")?
     };
 
     // Setup logger
@@ -96,13 +96,11 @@ async fn main() -> Result<()> {
 
     // Setup database if needed and check for migrations
     {
-        let conn = pool.get()?;
+        repository.setup_database()?;
 
-        domain_db::db::migrations::setup_database(&*conn)?;
-
-        if domain_db::db::migrations::any_pending_migrations(&*conn)? {
+        if repository.any_pending_migrations()? {
             if matches.is_present("migrate") {
-                domain_db::db::migrations::run_pending_migrations(&*conn)?;
+                repository.run_pending_migrations()?;
                 log::info!("Migration successfully")
             } else {
                 log::error!("Migration needed");
@@ -123,13 +121,15 @@ async fn main() -> Result<()> {
             // Import by command
             let num_records = match exec_name {
                 "import_nist" => nist::import::run(
-                    &pool,
+                    &repository,
                     matches.value_of("year").unwrap(),
                     &data_path,
                     matches.is_present("fresh"),
                 ),
 
-                "import_npm" => npm::import::run(&pool, matches.is_present("recent"), &data_path),
+                "import_npm" => {
+                    npm::import::run(&repository, matches.is_present("recent"), &data_path)
+                }
 
                 _ => unreachable!("Trying to launch a not existent subcommand"),
             }?;
@@ -153,7 +153,11 @@ async fn main() -> Result<()> {
                     8000
                 });
 
-            let api_config = ApiConfig { host, port, pool };
+            let api_config = ApiConfig {
+                host,
+                port,
+                repository,
+            };
 
             api::run(api_config)?.await?
         }

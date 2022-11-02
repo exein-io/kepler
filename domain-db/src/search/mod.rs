@@ -1,9 +1,10 @@
+use anyhow::{bail, Result};
 use serde::Deserialize;
 use std::time::Instant;
 use version_compare::Cmp;
 
 use crate::db::models::CVE;
-use crate::db::{models, Database};
+use crate::db::{models, PostgresRepository};
 use crate::sources::{nist, npm, Source};
 
 pub trait CveCache {
@@ -19,16 +20,16 @@ pub struct Query {
 }
 
 pub fn query(
-    db: &Database,
+    repository: &PostgresRepository,
     query: &Query,
     cache: Option<&dyn CveCache>,
-) -> Result<Vec<models::CVE>, String> {
+) -> Result<Vec<models::CVE>> {
     log::info!("searching query: {:?} ...", query);
 
     // validate version string
     if let Some(ver) = &query.version {
         if version_compare::compare_to(ver, "1.0.0", Cmp::Ne).is_err() {
-            return Err("invalid version string".to_owned());
+            bail!("invalid version string");
         }
     }
 
@@ -44,7 +45,7 @@ pub fn query(
 
     // fetch potential candidates for this query
     let start = Instant::now();
-    let candidates = db.search(query.vendor.as_ref(), &query.product)?;
+    let candidates = repository.search(query.vendor.as_ref(), &query.product)?;
 
     log::info!(
         "found {} candidates in {:?}",
@@ -63,17 +64,17 @@ pub fn query(
                 if let Ok(cve) = serde_json::from_str(&obj.data) {
                     sources.push(Source::Nist(cve));
                 } else {
-                    return Err(format!("could not deserialize {}", obj.cve));
+                    bail!("could not deserialize {}", obj.cve);
                 }
             }
             npm::SOURCE_NAME => {
                 if let Ok(adv) = serde_json::from_str(&obj.data) {
                     sources.push(Source::Npm(adv));
                 } else {
-                    return Err(format!("could not deserialize {}:\n{}", obj.cve, obj.data));
+                    bail!("could not deserialize {}:\n{}", obj.cve, obj.data);
                 }
             }
-            _ => return Err(format!("unsupported data source {}", cve.source)),
+            _ => bail!("unsupported data source {}", cve.source),
         }
     }
 
