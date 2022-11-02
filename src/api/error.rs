@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use actix_web::{error::BlockingError, http::StatusCode, HttpResponse, HttpResponseBuilder};
-use domain_db::db::DatabaseError;
 
 #[derive(Debug)]
 pub enum ApplicationError {
@@ -36,22 +35,17 @@ impl actix_web::error::ResponseError for ApplicationError {
     }
 }
 
-pub fn handle_database_error(error: DatabaseError) -> ApplicationError {
-    log::error!("{}", error);
-    ApplicationError::ServiceUnavailable
-}
-
 pub fn handle_blocking_error(error: BlockingError) -> ApplicationError {
     log::error!("{}", error);
     ApplicationError::ServiceUnavailable
 }
 
-pub fn internal_server_error(error: String) -> ApplicationError {
+pub fn internal_server_error(error: anyhow::Error) -> ApplicationError {
     log::error!("{}", error);
     ApplicationError::InternalServerError
 }
 
-pub fn bad_request_body(error: String) -> ApplicationError {
+pub fn bad_request_body(error: anyhow::Error) -> ApplicationError {
     log::error!("{}", error);
-    ApplicationError::BadRequest(error)
+    ApplicationError::BadRequest(error.to_string())
 }

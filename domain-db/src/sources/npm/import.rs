@@ -7,18 +7,16 @@ use regex::Regex;
 
 use super::{Advisories, SOURCE_NAME};
 
-use crate::db::{self, Pool};
+use crate::db::{self, PostgresRepository};
 use crate::sources::download_to_file;
 
-fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
+fn process_file(repository: &PostgresRepository, file_path: &Path) -> Result<(u32, bool)> {
     info!("processing {} ...", file_path.display());
 
     let mut num_imported = 0;
     let json = fs::read_to_string(&file_path)?;
 
     let advisories: Advisories = serde_json::from_str(&json)?;
-
-    let database = db::Database(pool.get()?);
 
     let tagged_refs_parser = Regex::new(r"\[(?P<tag>[^\]]+)\]\((?P<url>[^\)]+)\)")?;
     let url_refs_parser = Regex::new(r"-\s+(?P<url>[^\s]+)")?;
@@ -38,10 +36,9 @@ fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
         if adv.cves.is_empty() {
             // no assigned CVEs yet, import
             let object_json = serde_json::to_string(&adv)?;
-            let object_id = match database.create_object_if_not_exist(db::models::NewObject::with(
-                pseudo_cve.clone(),
-                object_json.clone(),
-            )) {
+            let object_id = match repository.create_object_if_not_exist(
+                db::models::NewObject::with(pseudo_cve.clone(), object_json.clone()),
+            ) {
                 Err(e) => bail!(e),
                 Ok(id) => id,
             };
@@ -80,7 +77,7 @@ fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
                 refs.clone(),
                 Some(object_id),
             );
-            match database.create_cve_if_not_exist(new_cve) {
+            match repository.create_cve_if_not_exist(new_cve) {
                 Err(e) => bail!(e),
                 Ok(true) => num_imported += 1,
                 Ok(false) => {}
@@ -93,7 +90,7 @@ fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
             // if there are assigned CVEs for this advisory, try to clean the database from
             // it in case we previously imported when it didn't have any, since now we're
             // supposed to have the actual CVE from NVD.
-            match database.delete_cve("@npm", &product, &pseudo_cve) {
+            match repository.delete_cve("@npm", &product, &pseudo_cve) {
                 Err(e) => bail!(e),
                 Ok(0) => {}
                 Ok(_) => {
@@ -109,7 +106,7 @@ fn process_file(pool: &Pool, file_path: &Path) -> Result<(u32, bool)> {
     Ok((num_imported, advisories.urls.next.is_some()))
 }
 
-pub fn run(pool: &Pool, recent_only: bool, data_path: &Path) -> Result<u32> {
+pub fn run(repository: &PostgresRepository, recent_only: bool, data_path: &Path) -> Result<u32> {
     let mut num_imported = 0;
 
     if recent_only {
@@ -122,7 +119,7 @@ pub fn run(pool: &Pool, recent_only: bool, data_path: &Path) -> Result<u32> {
         )
         .map_err(|err| anyhow!(err))?;
 
-        let res = process_file(pool, &file_path)?;
+        let res = process_file(repository, &file_path)?;
         num_imported = res.0;
     } else {
         // download and import all available records
@@ -137,7 +134,7 @@ pub fn run(pool: &Pool, recent_only: bool, data_path: &Path) -> Result<u32> {
                 );
                 download_to_file(&url, &file_path).map_err(|err| anyhow!(err))?;
             }
-            let res = process_file(pool, &file_path)?;
+            let res = process_file(repository, &file_path)?;
             num_imported += res.0;
 
             if res.1 {
