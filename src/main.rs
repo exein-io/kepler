@@ -98,11 +98,11 @@ async fn main() -> Result<()> {
     {
         let conn = pool.get()?;
 
-        diesel_migrations::setup_database(&*conn)?;
+        domain_db::db::migrations::setup_database(&*conn)?;
 
-        if diesel_migrations::any_pending_migrations(&*conn)? {
+        if domain_db::db::migrations::any_pending_migrations(&*conn)? {
             if matches.is_present("migrate") {
-                diesel_migrations::run_pending_migrations(&*conn)?;
+                domain_db::db::migrations::run_pending_migrations(&*conn)?;
                 log::info!("Migration successfully")
             } else {
                 log::error!("Migration needed");
