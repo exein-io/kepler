@@ -6,7 +6,6 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use r2d2_diesel::ConnectionManager;
 
-pub mod migrations;
 pub mod models;
 pub mod schema;
 
