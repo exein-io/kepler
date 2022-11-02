@@ -19,12 +19,12 @@ pub fn any_pending_migrations<Conn>(conn: &Conn) -> Result<bool, MigrationError>
 where
     Conn: MigrationConnection,
 {
-    diesel_migrations::any_pending_migrations(&*conn).map_err(|e| e.into())
+    diesel_migrations::any_pending_migrations(conn).map_err(|e| e.into())
 }
 
 pub fn run_pending_migrations<Conn>(conn: &Conn) -> Result<(), MigrationError>
 where
     Conn: MigrationConnection,
 {
-    diesel_migrations::run_pending_migrations(&*conn).map_err(|e| e.into())
+    diesel_migrations::run_pending_migrations(conn).map_err(|e| e.into())
 }
