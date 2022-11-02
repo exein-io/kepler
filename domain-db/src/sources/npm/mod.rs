@@ -4,7 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
-use crate::search::Query;
+use crate::db::Query;
 use crate::sources::version_cmp;
 
 pub mod import;
@@ -122,8 +122,7 @@ impl Advisory {
 
 #[cfg(test)]
 mod tests {
-    use super::Advisory;
-    use crate::search::Query;
+    use super::*;
 
     #[test]
     fn no_match_without_version() {

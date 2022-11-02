@@ -3,7 +3,7 @@ use std::{fs::File, path::Path};
 use serde::Deserialize;
 use version_compare::Cmp;
 
-use crate::search::Query;
+use crate::db::Query;
 
 pub mod nist;
 pub mod npm;
