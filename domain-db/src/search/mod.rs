@@ -35,10 +35,10 @@ pub fn query(
     // Check the optional cache first
     if let Some(cache) = cache {
         if let Some(cached) = cache.get(query) {
-            log::info!("cache hit");
+            log::debug!("cache hit");
             return Ok(cached);
         } else {
-            log::info!("cache miss");
+            log::debug!("cache miss");
         }
     }
 
@@ -94,7 +94,7 @@ pub fn query(
 
     // Update the optional cache
     if let Some(cache) = cache {
-        log::info!("update cache");
+        log::debug!("update cache");
         cache.put(query.clone(), matches.clone());
     }
 
