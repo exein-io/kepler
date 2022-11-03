@@ -1,6 +1,6 @@
-use std::{fs::File, path::Path};
-
+use anyhow::{Context, Result};
 use serde::Deserialize;
+use std::{fs::File, path::Path};
 use version_compare::Cmp;
 
 use crate::db::Query;
@@ -34,23 +34,23 @@ pub(crate) fn version_cmp(a: &str, b: &str, operator: Cmp) -> bool {
     false
 }
 
-pub(crate) fn download_to_file(url: &str, file_name: &Path) -> Result<(), String> {
+pub(crate) fn download_to_file(url: &str, file_name: &Path) -> Result<()> {
     log::info!("downloading {} to {} ...", url, file_name.display(),);
 
     let client = reqwest::blocking::Client::builder()
         .timeout(Some(std::time::Duration::from_secs(300)))
         .build()
-        .map_err(|e| format!("could not create http client: {}", e))?;
+        .with_context(|| format!("could not create http client"))?;
     let mut res = client
         .get(url)
         .send()
-        .map_err(|e| format!("error downloading file: {}", e))?;
+        .with_context(|| format!("error downloading: {url}"))?;
 
     let mut file = File::create(file_name)
-        .map_err(|e| format!("could not create {}: {}", file_name.display(), e))?;
+        .with_context(|| format!("could not create {}", file_name.display()))?;
 
     res.copy_to(&mut file)
-        .map_err(|e| format!("could not download {}: {}", file_name.display(), e))?;
+        .with_context(|| format!("could not download to {}", file_name.display()))?;
 
     Ok(())
 }

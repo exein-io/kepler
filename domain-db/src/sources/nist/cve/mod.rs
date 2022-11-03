@@ -1,4 +1,6 @@
+use anyhow::{Context, Result};
 use std::fs::{self, File};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -8,12 +10,11 @@ use log::info;
 use crate::sources::download_to_file;
 
 pub mod item;
-pub mod list;
 pub mod node;
 
 pub const VERSION: &str = "1.1";
 
-pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, list::List), String> {
+pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, Vec<item::CVE>)> {
     let mut file_name = data_path.to_path_buf();
     file_name.push(format!("nvdcve-{}-{}.json", VERSION, year));
 
@@ -24,13 +25,13 @@ pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, list
         if gzip_file_name.exists() {
             info!("removing {}", gzip_file_name.display());
             fs::remove_file(&gzip_file_name)
-                .map_err(|e| format!("could not remove {}: {}", gzip_file_name.display(), e))?;
+                .with_context(|| format!("could not remove {}", gzip_file_name.display()))?;
         }
 
         if file_name.exists() {
             info!("removing {}", file_name.display());
             fs::remove_file(&file_name)
-                .map_err(|e| format!("could not remove {}: {}", file_name.display(), e))?;
+                .with_context(|| format!("could not remove {}", file_name.display()))?;
         }
     }
 
@@ -52,26 +53,39 @@ pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, list
     info!("reading {} ...", file_name.display());
 
     let start = Instant::now();
-    let cve_list = list::List::parse(&file_name)?;
+    let cve_list = read_cves_from_path(&file_name)?;
 
     info!("loaded {} CVEs in {:?}", cve_list.len(), start.elapsed());
 
     Ok((file_name, cve_list))
 }
 
-fn gunzip(from: &Path, to: &Path) -> Result<(), String> {
+fn gunzip(from: &Path, to: &Path) -> Result<()> {
     log::info!("extracting {} to {} ...", from.display(), to.display());
 
-    let source =
-        File::open(from).map_err(|e| format!("could not open {}: {}", from.display(), e))?;
+    let source = File::open(from).with_context(|| format!("could not open {}", from.display()))?;
 
     let mut archive = std::io::BufReader::new(GzDecoder::new(source));
 
     let mut dest =
-        File::create(to).map_err(|e| format!("could not create {}: {}", to.display(), e))?;
+        File::create(to).with_context(|| format!("could not create {}", to.display()))?;
 
     std::io::copy(&mut archive, &mut dest)
-        .map_err(|e| format!("could not extract {}: {}", from.display(), e))?;
+        .with_context(|| format!("could not extract {}", from.display()))?;
 
     Ok(())
+}
+
+pub fn read_cves_from_path<P: AsRef<Path>>(path: P) -> Result<Vec<item::CVE>> {
+    let file = File::open(&path).context("failed to open file")?;
+
+    let reader = BufReader::new(file);
+
+    let mut cves: Vec<item::CVE> =
+        serde_json::from_reader(reader).context("failed to parse cves")?;
+
+    // remove CVE without configurations as they're still being processed
+    cves.retain(|item| item.is_complete());
+
+    Ok(cves)
 }

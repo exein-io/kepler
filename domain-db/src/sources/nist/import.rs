@@ -18,7 +18,7 @@ pub fn run(
 
     let mut num_imported = 0;
 
-    for item in &mut cve_list.items {
+    for item in &mut cve_list {
         let json = serde_json::to_string(item)?;
 
         let object_id = match repository
