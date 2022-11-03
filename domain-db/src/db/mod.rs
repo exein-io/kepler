@@ -11,7 +11,6 @@ use r2d2_diesel::ConnectionManager;
 pub mod models;
 pub mod schema;
 
-use models::CVE;
 use serde::Deserialize;
 use version_compare::Cmp;
 
@@ -169,22 +168,12 @@ impl PostgresRepository {
         Ok(products)
     }
 
-    pub fn query(&self, query: &Query, cache: Option<&dyn CveCache>) -> Result<Vec<models::CVE>> {
+    pub fn query(&self, query: &Query) -> Result<Vec<models::CVE>> {
         log::info!("searching query: {:?} ...", query);
 
         // validate version string
         if version_compare::compare_to(&query.version, "1.0.0", Cmp::Ne).is_err() {
             bail!("invalid version string");
-        }
-
-        // Check the optional cache first
-        if let Some(cache) = cache {
-            if let Some(cached) = cache.get(query) {
-                log::debug!("cache hit");
-                return Ok(cached);
-            } else {
-                log::debug!("cache miss");
-            }
         }
 
         let conn = self.pool.get()?;
@@ -236,19 +225,8 @@ impl PostgresRepository {
             start.elapsed().as_millis()
         );
 
-        // Update the optional cache
-        if let Some(cache) = cache {
-            log::debug!("update cache");
-            cache.put(query.clone(), matches.clone());
-        }
-
         Ok(matches)
     }
-}
-
-pub trait CveCache {
-    fn get(&self, query: &Query) -> Option<Vec<CVE>>;
-    fn put(&self, query: Query, cves: Vec<CVE>) -> Option<Vec<CVE>>;
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]
