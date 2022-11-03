@@ -1,23 +1,10 @@
 use std::{fs::File, path::Path};
 
 use anyhow::{Context, Result};
-use serde::Deserialize;
+
 use version_compare::Cmp;
 
 pub mod nist;
-
-#[derive(Debug, Deserialize)]
-pub enum Source {
-    Nist(nist::cve::item::CVE),
-}
-
-impl Source {
-    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
-        match self {
-            Self::Nist(cve) => cve.is_match(product, version),
-        }
-    }
-}
 
 pub(crate) fn version_cmp(a: &str, b: &str, operator: Cmp) -> bool {
     if let Ok(res) = version_compare::compare_to(a, b, operator) {

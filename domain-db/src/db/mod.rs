@@ -1,10 +1,11 @@
 use std::ops::Deref;
 use std::time::Instant;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use diesel::insert_into;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use r2d2::PooledConnection;
 use r2d2_diesel::ConnectionManager;
 
 pub mod models;
@@ -14,7 +15,7 @@ use models::CVE;
 use serde::Deserialize;
 use version_compare::Cmp;
 
-use crate::sources::{nist, Source};
+use crate::sources::nist;
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]
@@ -123,30 +124,6 @@ impl PostgresRepository {
         .context("error deleting cve")
     }
 
-    pub fn search(
-        &self,
-        by_vendor: Option<&String>,
-        by_product: &str,
-    ) -> Result<Vec<(models::CVE, models::Object)>> {
-        use schema::cves::dsl::*;
-        use schema::objects::dsl::*;
-
-        let conn = self.pool.get()?;
-
-        match (by_vendor, by_product) {
-            (Some(v), p) => cves
-                .filter(product.eq(p).and(vendor.eq(v)))
-                .inner_join(objects)
-                .load(conn.deref())
-                .context("error searching records"),
-            (None, p) => cves
-                .filter(product.eq(p))
-                .inner_join(objects)
-                .load(conn.deref())
-                .context("error searching records"),
-        }
-    }
-
     pub fn get_products(&self) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
 
@@ -196,10 +173,8 @@ impl PostgresRepository {
         log::info!("searching query: {:?} ...", query);
 
         // validate version string
-        if let Some(ver) = &query.version {
-            if version_compare::compare_to(ver, "1.0.0", Cmp::Ne).is_err() {
-                bail!("invalid version string");
-            }
+        if version_compare::compare_to(&query.version, "1.0.0", Cmp::Ne).is_err() {
+            bail!("invalid version string");
         }
 
         // Check the optional cache first
@@ -212,50 +187,54 @@ impl PostgresRepository {
             }
         }
 
+        let conn = self.pool.get()?;
+
         // fetch potential candidates for this query
         let start = Instant::now();
-        let candidates = self.search(query.vendor.as_ref(), &query.product)?;
-
+        let candidates = fetch_candidates(&conn, query.vendor.as_ref(), &query.product)?;
         log::info!(
-            "found {} candidates in {:?}",
+            "found {} candidates in {} ms",
             candidates.len(),
-            start.elapsed()
+            start.elapsed().as_millis()
         );
 
         // deserialize all objects belonging to the potential CVEs
         let start = Instant::now();
-        let mut matches = vec![];
-        let mut sources = vec![];
-
-        for (cve, obj) in &candidates {
-            match cve.source.as_str() {
+        let sources = candidates
+            .into_iter()
+            .map(|(cve, obj)| match cve.source.as_str() {
                 nist::SOURCE_NAME => {
-                    if let Ok(cve) = serde_json::from_str(&obj.data) {
-                        sources.push(Source::Nist(cve));
+                    if let Ok(cve_des) = serde_json::from_str(&obj.data) {
+                        Ok((cve, Source::Nist(cve_des)))
                     } else {
-                        bail!("could not deserialize {}", obj.cve);
+                        Err(anyhow!("could not deserialize {}", obj.cve))
                     }
                 }
-                _ => bail!("unsupported data source {}", cve.source),
-            }
-        }
-
+                _ => Err(anyhow!("unsupported data source {}", cve.source)),
+            })
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
         log::info!(
-            "deserialized the {} candidates in {:?}",
+            "deserialized the {} candidates in {} ms",
             sources.len(),
-            start.elapsed()
+            start.elapsed().as_millis()
         );
 
-        let start = Instant::now();
-        for (index, object) in sources.iter_mut().enumerate() {
-            if let Some(version) = &query.version {
-                if object.is_match(&query.product, version) {
-                    matches.push(candidates[index].0.clone());
+        // Find match
+        let matches = sources
+            .into_iter()
+            .filter_map(|(cve, mut source)| {
+                if source.is_match(&query.product, &query.version) {
+                    Some(cve)
+                } else {
+                    None
                 }
-            }
-        }
-
-        log::info!("found {} matches in {:?}", matches.len(), start.elapsed());
+            })
+            .collect::<Vec<_>>();
+        log::info!(
+            "found {} matches in {} ms",
+            matches.len(),
+            start.elapsed().as_millis()
+        );
 
         // Update the optional cache
         if let Some(cache) = cache {
@@ -276,5 +255,41 @@ pub trait CveCache {
 pub struct Query {
     pub vendor: Option<String>,
     pub product: String,
-    pub version: Option<String>,
+    pub version: String,
+}
+
+fn fetch_candidates(
+    conn: &PooledConnection<ConnectionManager<PgConnection>>,
+    by_vendor: Option<&String>,
+    by_product: &str,
+) -> Result<Vec<(models::CVE, models::Object)>> {
+    use schema::cves::dsl::*;
+    use schema::objects::dsl::*;
+
+    match (by_vendor, by_product) {
+        (Some(v), p) => cves
+            .filter(product.eq(p).and(vendor.eq(v)))
+            .inner_join(objects)
+            .load(conn.deref())
+            .context("error searching records"),
+        (None, p) => cves
+            .filter(product.eq(p))
+            .inner_join(objects)
+            .load(conn.deref())
+            .context("error searching records"),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub enum Source {
+    Nist(nist::cve::item::CVE),
+    // Placeholder different types
+}
+
+impl Source {
+    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
+        match self {
+            Self::Nist(cve) => cve.is_match(product, version),
+        }
+    }
 }
