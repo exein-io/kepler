@@ -260,7 +260,7 @@ fn fetch_candidates(
 
 #[derive(Debug, Deserialize)]
 pub enum Source {
-    Nist(nist::cve::item::CVE),
+    Nist(nist::cve::CVE),
     // Placeholder different types
 }
 
