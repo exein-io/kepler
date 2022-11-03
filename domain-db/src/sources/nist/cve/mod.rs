@@ -13,14 +13,14 @@ pub mod node;
 
 pub const VERSION: &str = "1.1";
 
-pub fn setup(year: &str, data_path: &Path, fresh: bool) -> Result<(PathBuf, Vec<item::CVE>)> {
+pub fn setup(year: &str, data_path: &Path, refresh: bool) -> Result<(PathBuf, Vec<item::CVE>)> {
     let mut file_name = data_path.to_path_buf();
     file_name.push(format!("nvdcve-{}-{}.json", VERSION, year));
 
     let mut gzip_file_name = data_path.to_path_buf();
     gzip_file_name.push(format!("nvdcve-{}-{}.json.gz", VERSION, year));
 
-    if fresh {
+    if refresh {
         if gzip_file_name.exists() {
             log::info!("removing {}", gzip_file_name.display());
             fs::remove_file(&gzip_file_name)
