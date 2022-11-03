@@ -872,6 +872,7 @@ dependencies = [
  "log",
  "lru",
  "serde",
+ "serde_json",
  "tracing",
  "tracing-actix-web",
  "tracing-log",

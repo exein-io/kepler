@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Arg, Command};
 use domain_db::{db, sources::nist};
 use env_logger::Env;
@@ -117,12 +117,15 @@ async fn main() -> Result<()> {
 
             // Import by command
             let num_records = match exec_name {
-                "import_nist" => nist::import(
-                    &repository,
-                    matches.value_of("year").unwrap(),
-                    &data_path,
-                    matches.is_present("fresh"),
-                ),
+                "import_nist" => {
+                    let (_, cve_list) = nist::download(
+                        matches.value_of("year").unwrap(),
+                        &data_path,
+                        matches.is_present("fresh"),
+                    )?;
+
+                    import_nist(&repository, cve_list)
+                }
 
                 _ => unreachable!("Trying to launch a not existent subcommand"),
             }?;
@@ -165,4 +168,58 @@ fn report_message(num_records: u32) -> String {
     } else {
         format!("{num_records} new records created")
     }
+}
+
+pub fn import_nist(
+    repository: &db::PostgresRepository,
+    mut cve_list: Vec<nist::cve::CVE>,
+) -> Result<u32> {
+    log::info!("connected to database, importing records ...");
+
+    let mut num_imported = 0;
+
+    for item in &mut cve_list {
+        let json = serde_json::to_string(item)?;
+
+        let object_id = match repository
+            .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))
+        {
+            Err(e) => bail!(e),
+            Ok(id) => id,
+        };
+
+        let mut refs = Vec::new();
+        for data in &item.cve.references.reference_data {
+            refs.push(db::models::Reference {
+                url: data.url.clone(),
+                tags: data.tags.clone(),
+            })
+        }
+
+        for product in item.collect_unique_products() {
+            let new_cve = db::models::NewCVE::with(
+                nist::SOURCE_NAME.into(),
+                product.vendor,
+                product.product,
+                item.id().into(),
+                item.summary().into(),
+                item.score(),
+                item.severity().into(),
+                Some(item.vector().into()),
+                refs.clone(),
+                Some(object_id),
+            );
+            match repository.create_cve_if_not_exist(new_cve) {
+                Err(e) => bail!(e),
+                Ok(true) => num_imported += 1,
+                Ok(false) => {}
+            }
+
+            if num_imported > 0 && num_imported % 100 == 0 {
+                log::info!("imported {} records ...", num_imported);
+            }
+        }
+    }
+
+    Ok(num_imported)
 }
