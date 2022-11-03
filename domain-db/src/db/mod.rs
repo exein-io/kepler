@@ -14,7 +14,7 @@ use models::CVE;
 use serde::Deserialize;
 use version_compare::Cmp;
 
-use crate::sources::{nist, npm, Source};
+use crate::sources::{nist, Source};
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]
@@ -234,13 +234,6 @@ impl PostgresRepository {
                         sources.push(Source::Nist(cve));
                     } else {
                         bail!("could not deserialize {}", obj.cve);
-                    }
-                }
-                npm::SOURCE_NAME => {
-                    if let Ok(adv) = serde_json::from_str(&obj.data) {
-                        sources.push(Source::Npm(adv));
-                    } else {
-                        bail!("could not deserialize {}:\n{}", obj.cve, obj.data);
                     }
                 }
                 _ => bail!("unsupported data source {}", cve.source),

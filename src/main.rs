@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Arg, Command};
-use domain_db::{
-    db,
-    sources::{nist, npm},
-};
+use domain_db::{db, sources::nist};
 use env_logger::Env;
 use std::{env, fs, path::PathBuf};
 
@@ -126,10 +123,6 @@ async fn main() -> Result<()> {
                     &data_path,
                     matches.is_present("fresh"),
                 ),
-
-                "import_npm" => {
-                    npm::import::run(&repository, matches.is_present("recent"), &data_path)
-                }
 
                 _ => unreachable!("Trying to launch a not existent subcommand"),
             }?;
