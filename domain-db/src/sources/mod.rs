@@ -1,9 +1,8 @@
+use std::{fs::File, path::Path};
+
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::{fs::File, path::Path};
 use version_compare::Cmp;
-
-use crate::db::Query;
 
 pub mod nist;
 
@@ -13,9 +12,9 @@ pub enum Source {
 }
 
 impl Source {
-    pub fn is_match(&mut self, query: &Query) -> bool {
+    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
         match self {
-            Self::Nist(cve) => cve.is_match(query),
+            Self::Nist(cve) => cve.is_match(product, version),
         }
     }
 }
@@ -40,7 +39,7 @@ pub(crate) fn download_to_file(url: &str, file_name: &Path) -> Result<()> {
     let client = reqwest::blocking::Client::builder()
         .timeout(Some(std::time::Duration::from_secs(300)))
         .build()
-        .with_context(|| format!("could not create http client"))?;
+        .context("could not create http client")?;
     let mut res = client
         .get(url)
         .send()

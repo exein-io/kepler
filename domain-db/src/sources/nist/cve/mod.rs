@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
-use flate2::read::GzDecoder;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+
+use anyhow::{Context, Result};
+use flate2::read::GzDecoder;
 
 use crate::sources::download_to_file;
 
