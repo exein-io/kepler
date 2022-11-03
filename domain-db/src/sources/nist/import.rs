@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use log::info;
 
 use super::{cve, SOURCE_NAME};
@@ -10,9 +10,9 @@ pub fn run(
     repository: &PostgresRepository,
     year: &str,
     data_path: &Path,
-    fresh: bool,
+    refresh: bool,
 ) -> Result<u32> {
-    let (_, mut cve_list) = cve::setup(year, data_path, fresh).map_err(|err| anyhow!(err))?;
+    let (_, mut cve_list) = cve::setup(year, data_path, refresh)?;
 
     info!("connected to database, importing records ...");
 

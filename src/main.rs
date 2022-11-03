@@ -36,11 +36,11 @@ async fn main() -> Result<()> {
                         .help("Data path."),
                 )
                 .arg(
-                    Arg::new("fresh")
+                    Arg::new("refresh")
                         .short('f')
-                        .long("fresh")
+                        .long("refresh")
                         .takes_value(false)
-                        .help("Download fresh files"),
+                        .help("Force download files again"),
                 ),
         )
         .subcommand(
