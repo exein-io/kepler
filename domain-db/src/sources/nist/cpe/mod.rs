@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, str::FromStr};
+use std::str::FromStr;
 
 use serde::Serialize;
 use version_compare::Cmp;

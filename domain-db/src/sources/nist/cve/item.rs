@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::node;
-use crate::db::Query;
-use crate::sources::nist::cpe;
+use crate::sources::nist::{cpe, cve::node};
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Meta {
@@ -217,14 +215,11 @@ impl CVE {
         products
     }
 
-    pub fn is_match(&mut self, query: &Query) -> bool {
-        // we need a version
-        if let Some(version) = &query.version {
-            for root in &mut self.configurations.nodes {
-                // roots are implicitly in OR
-                if root.is_match(&query.product, version) {
-                    return true;
-                }
+    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
+        for root in &mut self.configurations.nodes {
+            // roots are implicitly in OR
+            if root.is_match(product, version) {
+                return true;
             }
         }
         false

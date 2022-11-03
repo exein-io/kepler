@@ -248,8 +248,10 @@ impl PostgresRepository {
 
         let start = Instant::now();
         for (index, object) in sources.iter_mut().enumerate() {
-            if object.is_match(query) {
-                matches.push(candidates[index].0.clone());
+            if let Some(version) = &query.version {
+                if object.is_match(&query.product, version) {
+                    matches.push(candidates[index].0.clone());
+                }
             }
         }
 
