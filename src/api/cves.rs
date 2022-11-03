@@ -1,12 +1,12 @@
 use std::sync::Mutex;
 
 use actix_web::web::{self, Json};
-use lazy_static::{__Deref, lazy_static};
+use lazy_static::lazy_static;
 use lru::LruCache;
 
 use domain_db::{
     db::models::{self, CVE},
-    db::{CveCache, Query},
+    db::Query,
 };
 
 use super::{
@@ -24,9 +24,7 @@ impl CveLruCache {
     fn new(cap: usize) -> Self {
         Self(Mutex::new(LruCache::new(cap)))
     }
-}
 
-impl CveCache for CveLruCache {
     fn get(&self, query: &Query) -> Option<Vec<CVE>> {
         let mut inner = self.0.lock().unwrap();
         inner.get(query).map(Vec::clone)
@@ -41,14 +39,29 @@ pub async fn search(
     ctx: web::Data<ApplicationContext>,
     query: Json<Query>,
 ) -> Result<Json<Vec<CVE>>, ApplicationError> {
-    let cves = web::block(move || {
-        let repository = ctx.get_repository();
-        repository
-            .query(&query.into_inner(), Some(CACHE.deref()))
-            .map_err(bad_request_body)
-    })
-    .await
-    .map_err(handle_blocking_error)??;
+    // Check the cache first
+    if let Some(cached) = CACHE.get(&query) {
+        log::debug!("cache hit");
+        return Ok(Json(cached));
+    } else {
+        log::debug!("cache miss");
+    }
+
+    // Query the db
+    let cves = {
+        let query = query.clone();
+
+        web::block(move || {
+            let repository = ctx.get_repository();
+            repository.query(&query).map_err(bad_request_body)
+        })
+        .await
+        .map_err(handle_blocking_error)??
+    };
+
+    // Update the optional cache
+    log::debug!("update cache");
+    CACHE.put(query.0, cves.clone());
 
     Ok(Json(cves))
 }
