@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
 
             // Import by command
             let num_records = match exec_name {
-                "import_nist" => nist::import::run(
+                "import_nist" => nist::import(
                     &repository,
                     matches.value_of("year").unwrap(),
                     &data_path,
