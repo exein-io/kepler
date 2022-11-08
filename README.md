@@ -51,7 +51,7 @@ To import NIST records from all available years (2002 to 2022):
 
 ```bash
 for year in $(seq 2002 2022); do 
-    docker run -v $(pwd)/data:/data \
+    docker run --rm -v $(pwd)/data:/data \
         -e DATABASE_URL=postgres://kepler:kepler@localhost:5432/kepler \
 	--network=kepler_default \
 	kepler:dev import_nist $year -d /data; 
