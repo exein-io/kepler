@@ -14,7 +14,7 @@ pub mod schema;
 use serde::Deserialize;
 use version_compare::Cmp;
 
-use crate::sources::nist;
+use crate::cve_sources::nist;
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]

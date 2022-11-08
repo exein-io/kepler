@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
-use crate::sources::version_cmp;
+use crate::cve_sources::version_cmp;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Match {

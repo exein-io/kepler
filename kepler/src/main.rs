@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use clap::{Arg, Command};
-use domain_db::{db, sources::nist};
+use domain_db::{db, cve_sources::nist};
 use env_logger::Env;
 use std::{env, fs, path::PathBuf};
 
