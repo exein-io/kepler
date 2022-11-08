@@ -1,15 +1,12 @@
 use std::str::FromStr;
 
 use serde::Serialize;
-use version_compare::Cmp;
 
 pub mod component;
 pub mod types;
 
 use component::Component;
 use types::Type;
-
-use crate::sources::version_cmp;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Product {
@@ -108,59 +105,6 @@ impl FromStr for CPE23 {
     }
 }
 
-impl CPE23 {
-    #[inline]
-    fn normalize_target_software(target_sw: &str) -> String {
-        let mut norm = String::new();
-        for c in target_sw.chars() {
-            if c.is_alphanumeric() {
-                norm.push(c);
-            } else {
-                break;
-            }
-        }
-        norm
-    }
-
-    pub fn is_product_match(&self, product: &str) -> bool {
-        if self.product.is_any() {
-            return true;
-        } else if self.product.is_na() {
-            return false;
-        }
-
-        let my_product = if let Component::Value(software) = &self.target_sw {
-            // if target_sw is set to a value, then the product name must be created from it
-            // plus the actual product, so that if target_sw=node.js and pruduct=tar (<-- this
-            // one alone would false positive on gnu tar for instance), my_product becomes node-tar
-            format!(
-                "{}-{}",
-                Self::normalize_target_software(software),
-                self.product
-            )
-        } else {
-            self.product.to_string()
-        };
-
-        product == my_product
-    }
-
-    pub fn is_version_match(&self, version: &str) -> bool {
-        if self.version.is_any() {
-            return true;
-        } else if self.version.is_na() {
-            return false;
-        }
-        let my_version = if self.update.is_value() {
-            format!("{} {}", self.version, self.update)
-        } else {
-            self.version.to_string()
-        };
-
-        version_cmp(version, &my_version, Cmp::Eq)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::CPE23;
@@ -253,95 +197,6 @@ mod tests {
 
             assert!(res.is_err());
             assert_eq!(err, res.err().unwrap());
-        }
-    }
-
-    #[test]
-    fn can_match_products_correctly() {
-        struct ProductMatch(&'static str, bool);
-        let mut table = HashMap::new();
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
-            ProductMatch("stratocaster", false),
-        );
-
-        table.insert(
-            "cpe:2.3:o:gibson:lespaul:-:*:*:*:*:*:*:*",
-            ProductMatch("lespaul", true),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
-            ProductMatch("tar", false),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
-            ProductMatch("node-tar", true),
-        );
-
-        for (s, m) in table {
-            let res = s.parse::<CPE23>();
-            assert!(res.is_ok());
-            assert_eq!(m.1, res.unwrap().is_product_match(m.0));
-        }
-    }
-
-    #[test]
-    fn can_match_versions_correctly() {
-        struct VersionMatch(&'static str, bool);
-        let mut table = HashMap::new();
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", false),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", true),
-        );
-        table.insert(
-            "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
-            VersionMatch("0.0.0", true),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:1:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", true),
-        );
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", true),
-        );
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0.0:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", true),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
-            VersionMatch("1.0.0", false),
-        );
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
-            VersionMatch("1.0.1", true),
-        );
-
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
-            VersionMatch("1.0.1", false),
-        );
-        table.insert(
-            "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
-            VersionMatch("1.0.1 RC0", true),
-        );
-
-        for (s, m) in table {
-            let res = s.parse::<CPE23>();
-            assert!(res.is_ok());
-            assert_eq!(m.1, res.unwrap().is_version_match(m.0));
         }
     }
 }

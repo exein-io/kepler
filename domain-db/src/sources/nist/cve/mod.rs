@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::sources::nist::cpe;
-
 pub mod node;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]

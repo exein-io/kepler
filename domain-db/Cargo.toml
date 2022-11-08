@@ -24,3 +24,5 @@ r2d2-diesel = "1.0.0"
 diesel = { version = "1.4.8", features = ["postgres", "r2d2"] }
 diesel_json = "0.1.1"
 diesel_migrations = "1.4.0"
+
+cpe = { path = "../cpe" }

@@ -417,6 +417,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
+name = "cpe"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,6 +525,7 @@ name = "domain-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cpe",
  "diesel",
  "diesel_json",
  "diesel_migrations",
