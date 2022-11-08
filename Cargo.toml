@@ -24,4 +24,4 @@ domain-db = {path = "domain-db"}
 serde_json = "1.0.79"
 
 [workspace]
-members = ["domain-db"]
+members = ["domain-db", "cpe"]

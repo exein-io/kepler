@@ -10,7 +10,6 @@ use flate2::read::GzDecoder;
 
 use crate::sources::download_to_file;
 
-pub mod cpe;
 pub mod cve;
 
 pub const SOURCE_NAME: &str = "NIST";

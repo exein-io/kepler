@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
-use crate::sources::{nist::cpe, version_cmp};
+use crate::sources::version_cmp;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Match {
@@ -78,17 +78,63 @@ impl Match {
         let cpe = self.cpe.as_ref().unwrap();
 
         // product must match
-        if cpe.is_product_match(product) {
+        if cpe23_product_match(cpe, product) {
             // match contains a version range
             if self.has_version_range() {
                 return self.version_range_matches(version);
             }
             // comparision match on cpe23 version
-            return cpe.is_version_match(version);
+            return cpe23_version_match(cpe, version);
         }
 
         false
     }
+}
+
+fn cpe23_product_match(cpe: &cpe::CPE23, product: &str) -> bool {
+    if cpe.product.is_any() {
+        return true;
+    } else if cpe.product.is_na() {
+        return false;
+    }
+
+    let my_product = if let cpe::component::Component::Value(software) = &cpe.target_sw {
+        // if target_sw is set to a value, then the product name must be created from it
+        // plus the actual product, so that if target_sw=node.js and pruduct=tar (<-- this
+        // one alone would false positive on gnu tar for instance), my_product becomes node-tar
+        format!("{}-{}", normalize_target_software(software), cpe.product)
+    } else {
+        cpe.product.to_string()
+    };
+
+    product == my_product
+}
+
+fn cpe23_version_match(cpe: &cpe::CPE23, version: &str) -> bool {
+    if cpe.version.is_any() {
+        return true;
+    } else if cpe.version.is_na() {
+        return false;
+    }
+    let my_version = if cpe.update.is_value() {
+        format!("{} {}", cpe.version, cpe.update)
+    } else {
+        cpe.version.to_string()
+    };
+
+    version_cmp(version, &my_version, Cmp::Eq)
+}
+
+fn normalize_target_software(target_sw: &str) -> String {
+    let mut norm = String::new();
+    for c in target_sw.chars() {
+        if c.is_alphanumeric() {
+            norm.push(c);
+        } else {
+            break;
+        }
+    }
+    norm
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -179,5 +225,100 @@ impl Node {
         }
 
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cpe23_product_match, cpe23_version_match};
+    use std::collections::HashMap;
+
+    #[test]
+    fn can_match_products_correctly() {
+        struct ProductMatch(&'static str, bool);
+        let mut table = HashMap::new();
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
+            ProductMatch("stratocaster", false),
+        );
+
+        table.insert(
+            "cpe:2.3:o:gibson:lespaul:-:*:*:*:*:*:*:*",
+            ProductMatch("lespaul", true),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
+            ProductMatch("tar", false),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
+            ProductMatch("node-tar", true),
+        );
+
+        for (s, m) in table {
+            let res = s.parse::<cpe::CPE23>();
+            assert!(res.is_ok());
+            assert_eq!(m.1, cpe23_product_match(&res.unwrap(), m.0));
+        }
+    }
+
+    #[test]
+    fn can_match_versions_correctly() {
+        struct VersionMatch(&'static str, bool);
+        let mut table = HashMap::new();
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", false),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", true),
+        );
+        table.insert(
+            "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
+            VersionMatch("0.0.0", true),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:1:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", true),
+        );
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", true),
+        );
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0.0:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", true),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
+            VersionMatch("1.0.0", false),
+        );
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
+            VersionMatch("1.0.1", true),
+        );
+
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
+            VersionMatch("1.0.1", false),
+        );
+        table.insert(
+            "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
+            VersionMatch("1.0.1 RC0", true),
+        );
+
+        for (s, m) in table {
+            let res = s.parse::<cpe::CPE23>();
+            assert!(res.is_ok());
+            assert_eq!(m.1, cpe23_version_match(&res.unwrap(), m.0));
+        }
     }
 }
