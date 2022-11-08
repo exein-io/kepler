@@ -13,7 +13,7 @@
 
 <br/>
 
-Kepler is a vulnerability database and lookup store and API currently utilising [National Vulnerability Database](https://nvd.nist.gov/) and [NPM Advisories](https://npmjs.org/) as data sources; implementing CPE 2.3 tree expressions and version range evaluation in realtime.
+Kepler is a vulnerability database and lookup store and API currently utilising [National Vulnerability Database](https://nvd.nist.gov/) as data sources; implementing CPE 2.3 tree expressions and version range evaluation in realtime.
 
 <br/>
 
