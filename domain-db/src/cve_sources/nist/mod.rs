@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
 
-use crate::sources::download_to_file;
+use crate::cve_sources::download_to_file;
 
 pub mod cve;
 
