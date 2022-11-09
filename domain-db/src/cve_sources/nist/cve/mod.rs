@@ -220,6 +220,19 @@ impl CVE {
         self.impact.vector()
     }
 
+    pub fn problems(&self) -> Vec<&str> {
+        self.cve
+            .problem_type
+            .problem_type_data
+            .iter()
+            .flat_map(|item| {
+                item.description
+                    .iter()
+                    .map(|description_item| description_item.value.as_str())
+            })
+            .collect()
+    }
+
     pub fn collect_unique_products(&mut self) -> Vec<cpe::Product> {
         let mut products = vec![];
 

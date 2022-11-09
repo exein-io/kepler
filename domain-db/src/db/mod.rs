@@ -292,6 +292,7 @@ pub struct MatchedCVE {
     pub severity: String,
     pub vector: String,
     pub references: Vec<ResponseReference>,
+    pub problems: Vec<String>,
 }
 
 impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
@@ -319,6 +320,11 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
             severity: nist_cve.severity().into(),
             vector: nist_cve.vector().into(),
             references,
+            problems: nist_cve
+                .problems()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
         }
     }
 }
