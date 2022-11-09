@@ -39,6 +39,25 @@ pub struct Info {
     pub meta: Meta,
     pub references: References,
     pub description: Description,
+    #[serde(rename = "problemtype")]
+    pub problem_type: ProblemType,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct ProblemType {
+    #[serde(rename = "problemtype_data")]
+    problem_type_data: Vec<ProblemTypeDataItem>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct ProblemTypeDataItem {
+    pub description: Vec<ProblemTypeDescription>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct ProblemTypeDescription {
+    pub lang: String,
+    pub value: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -129,19 +148,19 @@ pub struct Impact {
 
 impl Impact {
     pub fn score(&self) -> f64 {
-        if let Some(metric) = &self.metric_v2 {
+        if let Some(metric) = &self.metric_v3 {
             return metric.cvss.base_score;
-        } else if let Some(metric) = &self.metric_v3 {
+        } else if let Some(metric) = &self.metric_v2 {
             return metric.cvss.base_score;
         }
         0.0
     }
 
     pub fn severity(&self) -> &str {
-        if let Some(metric) = &self.metric_v2 {
-            return &metric.severity;
-        } else if let Some(metric) = &self.metric_v3 {
+        if let Some(metric) = &self.metric_v3 {
             return &metric.cvss.base_severity;
+        } else if let Some(metric) = &self.metric_v2 {
+            return &metric.severity;
         }
         ""
     }
