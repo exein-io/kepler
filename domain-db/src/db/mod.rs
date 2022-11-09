@@ -283,14 +283,14 @@ impl Source {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchedCVE {
+    pub cve: String,
     pub source: String,
     pub vendor: String,
     pub product: String,
-    pub cve: String,
     pub summary: String,
     pub score: f64,
     pub severity: String,
-    pub vector: Option<String>,
+    pub vector: String,
     pub references: Vec<ResponseReference>,
 }
 
@@ -310,14 +310,14 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
         let models::Product { vendor, product } = product;
 
         MatchedCVE {
+            cve: nist_cve.id().into(),
             source: nist::SOURCE_NAME.into(),
             vendor,
             product,
-            cve: nist_cve.id().into(),
             summary: nist_cve.summary().into(),
             score: nist_cve.score(),
             severity: nist_cve.severity().into(),
-            vector: Some(nist_cve.vector().into()),
+            vector: nist_cve.vector().into(),
             references,
         }
     }
