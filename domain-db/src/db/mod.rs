@@ -293,6 +293,10 @@ pub struct MatchedCVE {
     pub vector: Option<String>,
     pub references: Vec<ResponseReference>,
     pub problems: Vec<String>,
+    #[serde(rename = "publishedDate")] // TODO: remove after response type implementation
+    pub published_date: String,
+    #[serde(rename = "lastModifiedDate")] // TODO: remove after response type implementation
+    pub last_modified_date: String,
 }
 
 impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
@@ -325,6 +329,8 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
                 .into_iter()
                 .map(str::to_string)
                 .collect(),
+            published_date: nist_cve.published_date,
+            last_modified_date: nist_cve.last_modified_date,
         }
     }
 }

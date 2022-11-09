@@ -188,6 +188,10 @@ pub struct CVE {
     pub cve: Info,
     pub impact: Impact,
     pub configurations: Configurations,
+    #[serde(rename = "publishedDate")]
+    pub published_date: String,
+    #[serde(rename = "lastModifiedDate")]
+    pub last_modified_date: String,
 }
 
 impl CVE {
