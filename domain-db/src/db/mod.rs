@@ -283,7 +283,7 @@ impl Source {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchedCVE {
-    pub cve: String,
+    pub cve: String, // ID
     pub source: String,
     pub vendor: String,
     pub product: String,
