@@ -11,7 +11,7 @@ use r2d2_diesel::ConnectionManager;
 pub mod models;
 pub mod schema;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
 use crate::cve_sources::nist;
@@ -168,7 +168,7 @@ impl PostgresRepository {
         Ok(products)
     }
 
-    pub fn query(&self, query: &Query) -> Result<Vec<models::CVE>> {
+    pub fn query(&self, query: &Query) -> Result<Vec<MatchedCVE>> {
         log::info!("searching query: {:?} ...", query);
 
         // validate version string
@@ -213,7 +213,16 @@ impl PostgresRepository {
             .into_iter()
             .filter_map(|(cve, mut source)| {
                 if source.is_match(&query.product, &query.version) {
-                    Some(cve)
+                    let product = models::Product {
+                        vendor: cve.vendor,
+                        product: cve.product,
+                    };
+
+                    let matched_cve = match source {
+                        Source::Nist(nist_cve) => (product, nist_cve).into(),
+                    };
+
+                    Some(matched_cve)
                 } else {
                     None
                 }
@@ -270,4 +279,52 @@ impl Source {
             Self::Nist(cve) => cve.is_match(product, version),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchedCVE {
+    pub source: String,
+    pub vendor: String,
+    pub product: String,
+    pub cve: String,
+    pub summary: String,
+    pub score: f64,
+    pub severity: String,
+    pub vector: Option<String>,
+    pub references: Vec<ResponseReference>,
+}
+
+impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
+    fn from((product, nist_cve): (models::Product, nist::cve::CVE)) -> Self {
+        let references = nist_cve
+            .cve
+            .references
+            .reference_data
+            .iter()
+            .map(|reference| ResponseReference {
+                url: reference.url.clone(),
+                tags: reference.tags.clone(),
+            })
+            .collect();
+
+        let models::Product { vendor, product } = product;
+
+        MatchedCVE {
+            source: nist::SOURCE_NAME.into(),
+            vendor,
+            product,
+            cve: nist_cve.id().into(),
+            summary: nist_cve.summary().into(),
+            score: nist_cve.score(),
+            severity: nist_cve.severity().into(),
+            vector: Some(nist_cve.vector().into()),
+            references,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResponseReference {
+    pub url: String,
+    pub tags: Vec<String>,
 }
