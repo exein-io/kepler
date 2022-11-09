@@ -147,31 +147,31 @@ pub struct Impact {
 }
 
 impl Impact {
-    pub fn score(&self) -> f64 {
+    pub fn score(&self) -> Option<f64> {
         if let Some(metric) = &self.metric_v3 {
-            return metric.cvss.base_score;
+            return Some(metric.cvss.base_score);
         } else if let Some(metric) = &self.metric_v2 {
-            return metric.cvss.base_score;
+            return Some(metric.cvss.base_score);
         }
-        0.0
+        None
     }
 
-    pub fn severity(&self) -> &str {
+    pub fn severity(&self) -> Option<&str> {
         if let Some(metric) = &self.metric_v3 {
-            return &metric.cvss.base_severity;
+            return Some(&metric.cvss.base_severity);
         } else if let Some(metric) = &self.metric_v2 {
-            return &metric.severity;
+            return Some(&metric.severity);
         }
-        ""
+        None
     }
 
-    pub fn vector(&self) -> &str {
-        if let Some(metric) = &self. metric_v3{
-            return &metric.cvss.attack_vector;
+    pub fn vector(&self) -> Option<&str> {
+        if let Some(metric) = &self.metric_v3 {
+            return Some(&metric.cvss.attack_vector);
         } else if let Some(metric) = &self.metric_v2 {
-            return &metric.cvss.access_vector;
+            return Some(&metric.cvss.access_vector);
         }
-        ""
+        None
     }
 }
 
@@ -199,24 +199,24 @@ impl CVE {
         &self.cve.meta.id
     }
 
-    pub fn summary(&self) -> &str {
+    pub fn summary(&self) -> Option<&str> {
         for desc in &self.cve.description.description_data {
             if desc.lang == "en" {
-                return &desc.value;
+                return Some(&desc.value);
             }
         }
-        ""
+        None
     }
 
-    pub fn score(&self) -> f64 {
+    pub fn score(&self) -> Option<f64> {
         self.impact.score()
     }
 
-    pub fn severity(&self) -> &str {
+    pub fn severity(&self) -> Option<&str> {
         self.impact.severity()
     }
 
-    pub fn vector(&self) -> &str {
+    pub fn vector(&self) -> Option<&str> {
         self.impact.vector()
     }
 
