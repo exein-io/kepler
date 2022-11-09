@@ -166,10 +166,10 @@ impl Impact {
     }
 
     pub fn vector(&self) -> &str {
-        if let Some(metric) = &self.metric_v2 {
-            return &metric.cvss.access_vector;
-        } else if let Some(metric) = &self.metric_v3 {
+        if let Some(metric) = &self. metric_v3{
             return &metric.cvss.attack_vector;
+        } else if let Some(metric) = &self.metric_v2 {
+            return &metric.cvss.access_vector;
         }
         ""
     }
