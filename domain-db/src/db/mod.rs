@@ -291,12 +291,13 @@ pub struct MatchedCVE {
     pub score: Option<f64>,
     pub severity: Option<String>,
     pub vector: Option<String>,
-    pub references: Vec<ResponseReference>,
+    pub references: Vec<Reference>,
     pub problems: Vec<String>,
     #[serde(rename = "publishedDate")] // TODO: remove after response type implementation
     pub published_date: String,
     #[serde(rename = "lastModifiedDate")] // TODO: remove after response type implementation
     pub last_modified_date: String,
+    pub cvss: CVSS,
 }
 
 impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
@@ -306,7 +307,7 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
             .references
             .reference_data
             .iter()
-            .map(|reference| ResponseReference {
+            .map(|reference| Reference {
                 url: reference.url.clone(),
                 tags: reference.tags.clone(),
             })
@@ -331,12 +332,40 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
                 .collect(),
             published_date: nist_cve.published_date,
             last_modified_date: nist_cve.last_modified_date,
+            cvss: CVSS {
+                v3: nist_cve.impact.metric_v3.map(|metric| CVSSV3 {
+                    vector: metric.cvss.vector_string,
+                    score: metric.cvss.base_score,
+                }),
+                v2: nist_cve.impact.metric_v2.map(|metric| CVSSV2 {
+                    vector: metric.cvss.vector_string,
+                    score: metric.cvss.base_score,
+                }),
+            },
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ResponseReference {
+pub struct Reference {
     pub url: String,
     pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CVSS {
+    v3: Option<CVSSV3>,
+    v2: Option<CVSSV2>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CVSSV3 {
+    pub vector: String,
+    pub score: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CVSSV2 {
+    pub vector: String,
+    pub score: f64,
 }
