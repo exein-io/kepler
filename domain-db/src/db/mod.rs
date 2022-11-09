@@ -287,10 +287,10 @@ pub struct MatchedCVE {
     pub source: String,
     pub vendor: String,
     pub product: String,
-    pub summary: String,
-    pub score: f64,
-    pub severity: String,
-    pub vector: String,
+    pub summary: Option<String>,
+    pub score: Option<f64>,
+    pub severity: Option<String>,
+    pub vector: Option<String>,
     pub references: Vec<ResponseReference>,
     pub problems: Vec<String>,
 }
@@ -315,10 +315,10 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
             source: nist::SOURCE_NAME.into(),
             vendor,
             product,
-            summary: nist_cve.summary().into(),
+            summary: nist_cve.summary().map(str::to_string),
             score: nist_cve.score(),
-            severity: nist_cve.severity().into(),
-            vector: nist_cve.vector().into(),
+            severity: nist_cve.severity().map(str::to_string),
+            vector: nist_cve.vector().map(str::to_string),
             references,
             problems: nist_cve
                 .problems()
