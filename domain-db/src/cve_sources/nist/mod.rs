@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
+use serde::Deserialize;
 
 use crate::cve_sources::download_to_file;
 
@@ -83,11 +84,26 @@ fn read_cves_from_path<P: AsRef<Path>>(path: P) -> Result<Vec<cve::CVE>> {
 
     let reader = BufReader::new(file);
 
-    let mut cves: Vec<cve::CVE> = serde_json::from_reader(reader)
-        .with_context(|| format!("failed to parse cves from {}", path.as_ref().display()))?;
+    let cve_container: CVEContainer = serde_json::from_reader(reader)
+        .with_context(|| format!("failed to parse cve file from {}", path.as_ref().display()))?;
 
     // remove CVE without configurations as they're still being processed
-    cves.retain(|item| item.is_complete());
+    let cves = cve_container
+        .CVE_Items
+        .into_iter()
+        .filter(|item| item.is_complete())
+        .collect();
 
     Ok(cves)
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(non_snake_case)]
+pub struct CVEContainer {
+    pub CVE_data_type: String,
+    pub CVE_data_format: String,
+    pub CVE_data_version: String,
+    pub CVE_data_numberOfCVEs: String,
+    pub CVE_data_timestamp: String,
+    pub CVE_Items: Vec<cve::CVE>,
 }
