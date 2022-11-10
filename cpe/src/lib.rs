@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 use serde::Serialize;
 
@@ -6,7 +6,7 @@ pub mod component;
 pub mod types;
 
 use component::Component;
-use types::Type;
+use types::CpeType;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Product {
@@ -16,7 +16,7 @@ pub struct Product {
 
 #[derive(Debug, Clone)]
 pub struct CPE23 {
-    pub what: Type,
+    pub what: CpeType,
     pub vendor: Component,
     pub product: Component,
     pub version: Component,
@@ -39,55 +39,69 @@ impl TryFrom<&str> for CPE23 {
 impl FromStr for CPE23 {
     type Err = String;
 
-    fn from_str(val: &str) -> Result<Self, Self::Err> {
-        let mut iter = val.splitn(13, ':');
-        let (
-            cpe,
-            ver,
-            what,
-            vendor,
-            product,
-            version,
-            update,
-            edition,
-            language,
-            sw_edition,
-            target_sw,
-            target_hw,
-            other,
-        ) = (
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-            iter.next().ok_or("invalid version string")?,
-        );
+    fn from_str(uri: &str) -> Result<Self, Self::Err> {
+        let uri = match uri.strip_prefix("cpe:2.3:") {
+            Some(u) => u,
+            None => return Err("invalid prefix".to_string()),
+        };
 
-        if cpe != "cpe" && cpe != "CPE" {
-            return Err(format!("expected 'cpe' found '{}'", cpe));
-        } else if ver != "2.3" {
-            return Err(format!("expected cpe v2.3, found v{}", ver));
-        }
+        let mut components = uri.split(':');
 
-        let what = Type::try_from(what)?;
-        let vendor = Component::try_from(vendor)?;
-        let product = Component::try_from(product)?;
-        let version = Component::try_from(version)?;
-        let update = Component::try_from(update)?;
-        let edition = Component::try_from(edition)?;
-        let language = Component::try_from(language)?;
-        let sw_edition = Component::try_from(sw_edition)?;
-        let target_sw = Component::try_from(target_sw)?;
-        let target_hw = Component::try_from(target_hw)?;
-        let other = Component::try_from(other)?;
+        let what = if let Some(part) = components.next() {
+            CpeType::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let vendor = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let product = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let version = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let update = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let edition = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let language = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let sw_edition = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let target_sw = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let target_hw = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
+        let other = if let Some(part) = components.next() {
+            Component::try_from(part)?
+        } else {
+            return Err("invalid version string".to_string());
+        };
 
         Ok(Self {
             what,
@@ -105,10 +119,31 @@ impl FromStr for CPE23 {
     }
 }
 
+impl fmt::Display for CPE23 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            what,
+            vendor,
+            product,
+            version,
+            update,
+            edition,
+            language,
+            sw_edition,
+            target_sw,
+            target_hw,
+            other,
+        } = self;
+
+        write!(f, "cpe:2.3:{what:#}:{vendor}:{product}:{version}:{update}:{edition}:{language}:{sw_edition}:{target_sw}:{target_hw}:{other}")?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::CPE23;
-    use std::collections::HashMap;
 
     #[test]
     fn can_parse_valid_strings() {
@@ -169,34 +204,26 @@ mod tests {
         for s in valid_cpes {
             let res = s.parse::<CPE23>();
             assert!(res.is_ok());
+            assert_eq!(s, res.unwrap().to_string())
         }
     }
 
     #[test]
     fn can_detect_invalid_strings() {
-        let mut invalid_cpes = HashMap::new();
-
-        invalid_cpes.insert("trollololol", "invalid version string");
-        invalid_cpes.insert(":::", "invalid version string");
-        invalid_cpes.insert(":-:-;", "invalid version string");
-        invalid_cpes.insert("--__--,", "invalid version string");
-        invalid_cpes.insert(
+        let invalid_cpes = vec![
+            "trollololol",
+            ":::",
+            ":-:-;",
+            "--__--,",
             "cpe:2.3:a:imagemagick:imagemagick:*:*:*:*:*:*:*",
-            "invalid version string",
-        );
-        invalid_cpes.insert(
             "cpo:2.3:a:imagemagick:imagemagick:*:*:*:*:*:*:*:*",
-            "expected 'cpe' found 'cpo'",
-        );
-        invalid_cpes.insert(
             "cpe:2.2:a:imagemagick:imagemagick:*:*:*:*:*:*:*:*",
-            "expected cpe v2.3, found v2.2",
-        );
-        for (s, err) in invalid_cpes {
+        ];
+
+        for s in invalid_cpes {
             let res = s.parse::<CPE23>();
 
             assert!(res.is_err());
-            assert_eq!(err, res.err().unwrap());
         }
     }
 }

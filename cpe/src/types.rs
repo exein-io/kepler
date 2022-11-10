@@ -1,36 +1,37 @@
-use std::{convert::TryFrom, str::FromStr};
+use std::{convert::TryFrom, fmt, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
+pub enum CpeType {
     Any,
     Hardware,
     OperatingSystem,
     Application,
 }
 
-impl Default for Type {
+impl Default for CpeType {
     fn default() -> Self {
         Self::Any
     }
 }
 
-impl TryFrom<&str> for Type {
+impl TryFrom<&str> for CpeType {
     type Error = String;
     fn try_from(val: &str) -> Result<Self, Self::Error> {
         Self::from_str(val)
     }
 }
 
-impl FromStr for Type {
+impl FromStr for CpeType {
     type Err = String;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         if val == "ANY" {
             return Ok(Self::Any);
         }
+
         let c = {
             let c = val.chars().next();
-            c.unwrap()
+            c.ok_or("No chars for type")?
         };
         match c {
             'h' => Ok(Self::Hardware),
@@ -41,28 +42,45 @@ impl FromStr for Type {
     }
 }
 
+impl fmt::Display for CpeType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Any => {
+                if f.alternate() {
+                    write!(f, "*")
+                } else {
+                    write!(f, "ANY")
+                }
+            }
+            Self::Hardware => write!(f, "h"),
+            Self::OperatingSystem => write!(f, "o"),
+            Self::Application => write!(f, "a"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
-    use super::Type;
+    use super::CpeType;
 
     #[test]
     fn can_parse_strings_correctly() {
         let mut table = HashMap::new();
 
-        table.insert("h", Type::Hardware);
-        table.insert("o", Type::OperatingSystem);
-        table.insert("a", Type::Application);
+        table.insert("h", CpeType::Hardware);
+        table.insert("o", CpeType::OperatingSystem);
+        table.insert("a", CpeType::Application);
 
         for (s, t) in table {
-            let res = s.parse::<Type>();
+            let res = s.parse::<CpeType>();
             assert_eq!(t, res.unwrap());
         }
     }
 
     #[test]
     fn can_detect_invalid_strings() {
-        assert!("troll".parse::<Type>().is_err());
+        assert!("troll".parse::<CpeType>().is_err());
     }
 }

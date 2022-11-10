@@ -1,13 +1,22 @@
-use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
+
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use version_compare::Cmp;
 
 use crate::cve_sources::version_cmp;
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Match {
     pub vulnerable: bool,
-    #[serde(rename = "cpe23Uri")]
-    pub cpe23: String,
+    #[serde(
+        rename = "cpe23Uri",
+        deserialize_with = "cpe23_string_deserialize",
+        serialize_with = "cpe23_string_serialize"
+    )]
+    pub cpe23: cpe::CPE23,
     #[serde(rename = "versionStartIncluding")]
     pub version_start_including: Option<String>,
     #[serde(rename = "versionStartExcluding")]
@@ -16,9 +25,6 @@ pub struct Match {
     pub version_end_including: Option<String>,
     #[serde(rename = "versionEndExcluding")]
     pub version_end_excluding: Option<String>,
-
-    #[serde(skip_serializing, skip_deserializing)]
-    cpe: Option<cpe::CPE23>,
 }
 
 impl Match {
@@ -57,34 +63,22 @@ impl Match {
         true
     }
 
-    fn parse(&mut self) -> Result<(), String> {
-        if self.cpe.is_none() {
-            self.cpe = Some(cpe::CPE23::try_from(self.cpe23.as_str())?);
-        }
-        Ok(())
-    }
-
     pub fn product(&mut self) -> cpe::Product {
-        self.parse().unwrap();
-        let cpe = self.cpe.as_ref().unwrap();
         cpe::Product {
-            vendor: cpe.vendor.to_string(),
-            product: cpe.product.to_string(),
+            vendor: self.cpe23.vendor.to_string(),
+            product: self.cpe23.product.to_string(),
         }
     }
 
     pub fn is_match(&mut self, product: &str, version: &str) -> bool {
-        self.parse().unwrap();
-        let cpe = self.cpe.as_ref().unwrap();
-
         // product must match
-        if cpe23_product_match(cpe, product) {
+        if cpe23_product_match(&self.cpe23, product) {
             // match contains a version range
             if self.has_version_range() {
                 return self.version_range_matches(version);
             }
             // comparision match on cpe23 version
-            return cpe23_version_match(cpe, version);
+            return cpe23_version_match(&self.cpe23, version);
         }
 
         false
@@ -226,6 +220,37 @@ impl Node {
 
         false
     }
+}
+
+fn cpe23_string_deserialize<'de, D>(deserializer: D) -> Result<cpe::CPE23, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct StringVisitor;
+
+    impl<'de> Visitor<'de> for StringVisitor {
+        type Value = cpe::CPE23;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("expected string")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<cpe::CPE23, E>
+        where
+            E: de::Error,
+        {
+            cpe::CPE23::from_str(value).map_err(|e| E::custom(e))
+        }
+    }
+
+    deserializer.deserialize_any(StringVisitor)
+}
+
+fn cpe23_string_serialize<S>(cpe: &cpe::CPE23, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&cpe.to_string())
 }
 
 #[cfg(test)]
