@@ -288,9 +288,6 @@ pub struct MatchedCVE {
     pub vendor: String,
     pub product: String,
     pub summary: Option<String>,
-    pub score: Option<f64>,
-    pub severity: Option<String>,
-    pub vector: Option<String>,
     pub references: Vec<Reference>,
     pub problems: Vec<String>,
     #[serde(rename = "publishedDate")] // TODO: remove after response type implementation
@@ -321,9 +318,6 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
             vendor,
             product,
             summary: nist_cve.summary().map(str::to_string),
-            score: nist_cve.score(),
-            severity: nist_cve.severity().map(str::to_string),
-            vector: nist_cve.vector().map(str::to_string),
             references,
             problems: nist_cve
                 .problems()
@@ -333,13 +327,17 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
             published_date: nist_cve.published_date,
             last_modified_date: nist_cve.last_modified_date,
             cvss: CVSS {
-                v3: nist_cve.impact.metric_v3.map(|metric| CVSSV3 {
-                    vector: metric.cvss.vector_string,
-                    score: metric.cvss.base_score,
+                v3: nist_cve.impact.metric_v3.map(|metric| CVSSVData {
+                    vector_string: metric.cvss.vector_string,
+                    base_score: metric.cvss.base_score,
+                    impact_score: metric.impact_score,
+                    severity: metric.cvss.base_severity,
                 }),
-                v2: nist_cve.impact.metric_v2.map(|metric| CVSSV2 {
-                    vector: metric.cvss.vector_string,
-                    score: metric.cvss.base_score,
+                v2: nist_cve.impact.metric_v2.map(|metric| CVSSVData {
+                    vector_string: metric.cvss.vector_string,
+                    base_score: metric.cvss.base_score,
+                    impact_score: metric.impact_score,
+                    severity: metric.severity,
                 }),
             },
         }
@@ -354,18 +352,17 @@ pub struct Reference {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CVSS {
-    v3: Option<CVSSV3>,
-    v2: Option<CVSSV2>,
+    v3: Option<CVSSVData>,
+    v2: Option<CVSSVData>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct CVSSV3 {
-    pub vector: String,
-    pub score: f64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct CVSSV2 {
-    pub vector: String,
-    pub score: f64,
+pub struct CVSSVData {
+    #[serde(rename = "vectorString")]
+    pub vector_string: String,
+    #[serde(rename = "baseScore")]
+    pub base_score: f64,
+    #[serde(rename = "impactScore")]
+    pub impact_score: f32,
+    pub severity: String,
 }
