@@ -63,14 +63,14 @@ impl Match {
         true
     }
 
-    pub fn product(&mut self) -> cpe::Product {
+    pub fn product(&self) -> cpe::Product {
         cpe::Product {
             vendor: self.cpe23.vendor.to_string(),
             product: self.cpe23.product.to_string(),
         }
     }
 
-    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
+    pub fn is_match(&self, product: &str, version: &str) -> bool {
         // product must match
         if cpe23_product_match(&self.cpe23, product) {
             // match contains a version range
@@ -152,17 +152,17 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn collect_unique_products(&mut self) -> Vec<cpe::Product> {
+    pub fn collect_unique_products(&self) -> Vec<cpe::Product> {
         let mut products = vec![];
 
-        for m in &mut self.cpe_match {
+        for m in &self.cpe_match {
             let prod = m.product();
             if !products.contains(&prod) {
                 products.push(prod);
             }
         }
 
-        for child in &mut self.children {
+        for child in &self.children {
             for prod in child.collect_unique_products() {
                 if !products.contains(&prod) {
                     products.push(prod);
@@ -173,13 +173,13 @@ impl Node {
         products
     }
 
-    pub fn is_match(&mut self, product: &str, version: &str) -> bool {
+    pub fn is_match(&self, product: &str, version: &str) -> bool {
         // leaf node
         if !self.cpe_match.is_empty() {
             match &self.operator {
                 Operator::Or => {
                     // any of them
-                    for cpe_match in &mut self.cpe_match {
+                    for cpe_match in &self.cpe_match {
                         if cpe_match.is_match(product, version) {
                             return true;
                         }
@@ -187,7 +187,7 @@ impl Node {
                 }
                 Operator::And => {
                     // all of them
-                    for cpe_match in &mut self.cpe_match {
+                    for cpe_match in &self.cpe_match {
                         if !cpe_match.is_match(product, version) {
                             return false;
                         }
@@ -200,7 +200,7 @@ impl Node {
             match &self.operator {
                 Operator::Or => {
                     // any of them
-                    for child in &mut self.children {
+                    for child in &self.children {
                         if child.is_match(product, version) {
                             return true;
                         }
@@ -208,7 +208,7 @@ impl Node {
                 }
                 Operator::And => {
                     // all of them
-                    for child in &mut self.children {
+                    for child in &self.children {
                         if !child.is_match(product, version) {
                             return false;
                         }

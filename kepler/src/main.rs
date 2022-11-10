@@ -172,13 +172,13 @@ fn report_message(num_records: u32) -> String {
 
 pub fn import_nist(
     repository: &db::PostgresRepository,
-    mut cve_list: Vec<nist::cve::CVE>,
+    cve_list: Vec<nist::cve::CVE>,
 ) -> Result<u32> {
     log::info!("connected to database, importing records ...");
 
     let mut num_imported = 0;
 
-    for item in &mut cve_list {
+    for item in &cve_list {
         let json = serde_json::to_string(item)?;
 
         let object_id = match repository
