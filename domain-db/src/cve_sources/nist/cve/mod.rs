@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 
 pub mod node;
@@ -196,18 +198,12 @@ impl CVE {
             .collect()
     }
 
-    pub fn collect_unique_products(&self) -> Vec<cpe::Product> {
-        let mut products = vec![];
-
-        for node in &self.configurations.nodes {
-            for prod in node.collect_unique_products() {
-                if !products.contains(&prod) {
-                    products.push(prod);
-                }
-            }
-        }
-
-        products
+    pub fn collect_unique_products(&self) -> HashSet<cpe::Product> {
+        self.configurations
+            .nodes
+            .iter()
+            .flat_map(|node| node.collect_unique_products())
+            .collect()
     }
 
     pub fn is_match(&mut self, product: &str, version: &str) -> bool {

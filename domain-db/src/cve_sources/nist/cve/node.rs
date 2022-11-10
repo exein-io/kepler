@@ -1,4 +1,4 @@
-use std::{fmt, str::FromStr};
+use std::{collections::HashSet, fmt, str::FromStr};
 
 use serde::{
     de::{self, Visitor},
@@ -152,25 +152,15 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn collect_unique_products(&self) -> Vec<cpe::Product> {
-        let mut products = vec![];
+    pub fn collect_unique_products(&self) -> HashSet<cpe::Product> {
+        let locals = self.cpe_match.iter().map(|m| m.product());
 
-        for m in &self.cpe_match {
-            let prod = m.product();
-            if !products.contains(&prod) {
-                products.push(prod);
-            }
-        }
+        let of_children = self
+            .children
+            .iter()
+            .flat_map(|node| node.collect_unique_products());
 
-        for child in &self.children {
-            for prod in child.collect_unique_products() {
-                if !products.contains(&prod) {
-                    products.push(prod);
-                }
-            }
-        }
-
-        products
+        locals.chain(of_children).collect()
     }
 
     pub fn is_match(&self, product: &str, version: &str) -> bool {
