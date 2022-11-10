@@ -146,35 +146,6 @@ pub struct Impact {
     pub metric_v3: Option<ImpactMetricV3>,
 }
 
-impl Impact {
-    pub fn score(&self) -> Option<f64> {
-        if let Some(metric) = &self.metric_v3 {
-            return Some(metric.cvss.base_score);
-        } else if let Some(metric) = &self.metric_v2 {
-            return Some(metric.cvss.base_score);
-        }
-        None
-    }
-
-    pub fn severity(&self) -> Option<&str> {
-        if let Some(metric) = &self.metric_v3 {
-            return Some(&metric.cvss.base_severity);
-        } else if let Some(metric) = &self.metric_v2 {
-            return Some(&metric.severity);
-        }
-        None
-    }
-
-    pub fn vector(&self) -> Option<&str> {
-        if let Some(metric) = &self.metric_v3 {
-            return Some(&metric.cvss.attack_vector);
-        } else if let Some(metric) = &self.metric_v2 {
-            return Some(&metric.cvss.access_vector);
-        }
-        None
-    }
-}
-
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Configurations {
     #[serde(rename = "CVE_data_version")]
@@ -210,18 +181,6 @@ impl CVE {
             }
         }
         None
-    }
-
-    pub fn score(&self) -> Option<f64> {
-        self.impact.score()
-    }
-
-    pub fn severity(&self) -> Option<&str> {
-        self.impact.severity()
-    }
-
-    pub fn vector(&self) -> Option<&str> {
-        self.impact.vector()
     }
 
     pub fn problems(&self) -> Vec<&str> {

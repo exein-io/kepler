@@ -203,9 +203,9 @@ pub fn import_nist(
                 product.product,
                 item.id().into(),
                 item.summary().map(str::to_string).unwrap_or_default(),
-                item.score().unwrap_or_default(),
-                item.severity().map(str::to_string).unwrap_or_default(),
-                item.vector().map(str::to_string),
+                Default::default(),
+                Default::default(),
+                Default::default(),
                 refs.clone(),
                 Some(object_id),
             );
