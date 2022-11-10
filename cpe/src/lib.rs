@@ -8,7 +8,7 @@ pub mod types;
 use component::Component;
 use types::CpeType;
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Hash)]
 pub struct Product {
     pub vendor: String,
     pub product: String,
