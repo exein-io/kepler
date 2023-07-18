@@ -20,7 +20,7 @@ pub struct Object {
 }
 
 #[derive(Debug, Insertable)]
-#[table_name = "objects"]
+#[diesel(table_name = objects)]
 pub struct NewObject {
     pub created_at: SystemTime,
     pub cve: String,
@@ -37,7 +37,7 @@ impl NewObject {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Reference {
     pub url: String,
     pub tags: Vec<String>,
@@ -66,7 +66,7 @@ pub struct CVE {
 }
 
 #[derive(Debug, Insertable)]
-#[table_name = "cves"]
+#[diesel(table_name = cves)]
 pub struct NewCVE {
     pub created_at: SystemTime,
     pub source: String,

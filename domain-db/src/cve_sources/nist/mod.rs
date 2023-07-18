@@ -16,7 +16,7 @@ pub mod cve;
 pub const SOURCE_NAME: &str = "NIST";
 pub const VERSION: &str = "1.1";
 
-pub fn download(year: &str, data_path: &Path, refresh: bool) -> Result<(PathBuf, Vec<cve::CVE>)> {
+pub fn download(year: u16, data_path: &Path, refresh: bool) -> Result<(PathBuf, Vec<cve::CVE>)> {
     let mut file_name = data_path.to_path_buf();
     file_name.push(format!("nvdcve-{}-{}.json", VERSION, year));
 

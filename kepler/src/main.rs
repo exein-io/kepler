@@ -1,73 +1,21 @@
 use anyhow::{bail, Context, Result};
-use clap::{Arg, Command};
+use clap::{Parser, Subcommand};
 use domain_db::{cve_sources::nist, db};
 use env_logger::Env;
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::Path};
 
 use kepler::api::{self, ApiConfig};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    let matches = Command::new("kepler")
-        .version(kepler::version())
-        .about("Kepler vulnerability database search engine")
-        .disable_help_subcommand(true)
-        .arg(
-            Arg::new("migrate")
-                .short('m')
-                .long("migrate")
-                .takes_value(false)
-                .help("Migrate database"),
-        )
-        .subcommand(
-            Command::new("import_nist")
-                .about("imports the specified year of CVE from the NIST data feed")
-                .arg(
-                    Arg::new("year")
-                        .help("the year to import")
-                        .index(1)
-                        .required(true),
-                )
-                .arg(
-                    Arg::new("data")
-                        .short('d')
-                        .long("data")
-                        .default_value("./data")
-                        .help("Data path."),
-                )
-                .arg(
-                    Arg::new("refresh")
-                        .short('f')
-                        .long("refresh")
-                        .takes_value(false)
-                        .help("Force download files again"),
-                ),
-        )
-        .subcommand(
-            Command::new("import_npm")
-                .about("imports vulnerabilities from the registry.npmjs.org data feed")
-                .arg(
-                    Arg::new("recent")
-                        .short('r')
-                        .long("recent")
-                        .takes_value(false)
-                        .help("only download recent records"),
-                )
-                .arg(
-                    Arg::new("data")
-                        .short('d')
-                        .long("data")
-                        .default_value("./data")
-                        .help("Data path."),
-                ),
-        )
-        .get_matches();
+    let opts = Opts::parse();
 
     // Repository
     let repository = {
         let database_url = env::var("DATABASE_URL")
             .context("DATABASE_URL environment variable has not specified.")?;
-        db::PostgresRepository::new(&database_url).context("Cannot connect to database")?
+        db::PostgresRepository::new(&database_url, "./migrations")
+            .context("Cannot connect to database")?
     };
 
     // Setup logger
@@ -77,16 +25,13 @@ async fn main() -> Result<()> {
         #[cfg(not(debug_assertions))]
         let default_env_filter = "info";
 
-        match matches.subcommand() {
-            Some(_) => {
-                // Init logger for non web application
-                let env = Env::default().default_filter_or(default_env_filter);
-                env_logger::Builder::from_env(env).try_init()
-            }
-            None => {
-                // Init tracer for web application
-                api::init_logger(default_env_filter)
-            }
+        if opts.cmd.is_none() {
+            // Init tracer for web application
+            api::init_logger(default_env_filter)
+        } else {
+            // Init logger for non web application
+            let env = Env::default().default_filter_or(default_env_filter);
+            env_logger::Builder::from_env(env).try_init()
         }
         .context("Failed to setup logger")?;
     }
@@ -96,7 +41,7 @@ async fn main() -> Result<()> {
         repository.setup_database()?;
 
         if repository.any_pending_migrations()? {
-            if matches.is_present("migrate") {
+            if opts.migrate {
                 repository.run_pending_migrations()?;
                 log::info!("Migration successfully")
             } else {
@@ -106,34 +51,24 @@ async fn main() -> Result<()> {
         }
     }
 
-    match matches.subcommand() {
-        Some((exec_name, matches)) => {
-            // Handle data directory creation
-            let data_path = PathBuf::from(matches.value_of("data").unwrap());
-            if !data_path.exists() {
-                log::info!("creating {}", data_path.display());
-                fs::create_dir_all(&data_path).expect("could not create data path");
+    match opts.cmd {
+        Some(cmd) => match cmd {
+            Commands::ImportNist {
+                year,
+                data_dir,
+                refresh,
+            } => {
+                let data_path = check_data_path(&data_dir);
+
+                let (_, cve_list) = nist::download(year, data_path, refresh)?;
+
+                let num_records = import_nist(&repository, cve_list)?;
+
+                let report = report_message(num_records);
+
+                log::info!("{report}");
             }
-
-            // Import by command
-            let num_records = match exec_name {
-                "import_nist" => {
-                    let (_, cve_list) = nist::download(
-                        matches.value_of("year").unwrap(),
-                        &data_path,
-                        matches.is_present("fresh"),
-                    )?;
-
-                    import_nist(&repository, cve_list)
-                }
-
-                _ => unreachable!("Trying to launch a not existent subcommand"),
-            }?;
-
-            let report = report_message(num_records);
-
-            log::info!("{report}");
-        }
+        },
         None => {
             let host = env::var("KEPLER_ADDRESS")
                 .map_err(|_| "Invalid or missing custom address")
@@ -162,12 +97,44 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn report_message(num_records: u32) -> String {
-    if num_records == 0 {
-        "No new records created".to_string()
-    } else {
-        format!("{num_records} new records created")
+#[derive(Parser)]
+#[command(author, version, about)]
+#[command(disable_help_subcommand = true)]
+struct Opts {
+    /// Migrate database
+    #[arg(short = 'm', long = "migrate")]
+    migrate: bool,
+
+    #[command(subcommand)]
+    cmd: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Imports the specified year of CVE from the NIST data feed
+    #[command(name = "import_nist")]
+    ImportNist {
+        /// Data path
+        #[arg(short = 'd', long = "data", default_value_t = String::from("./data"))]
+        data_dir: String,
+
+        /// Force download files again
+        #[arg(short = 'f', long = "refresh")]
+        refresh: bool,
+
+        /// The year to import
+        year: u16,
+    },
+}
+
+/// Handle data directory creation if not existing
+fn check_data_path(data_path: &str) -> &Path {
+    let data_path = Path::new(data_path);
+    if !data_path.exists() {
+        log::info!("creating {}", data_path.display());
+        fs::create_dir_all(data_path).expect("could not create data path");
     }
+    data_path
 }
 
 pub fn import_nist(
@@ -222,4 +189,12 @@ pub fn import_nist(
     }
 
     Ok(num_imported)
+}
+
+fn report_message(num_records: u32) -> String {
+    if num_records == 0 {
+        "No new records created".to_string()
+    } else {
+        format!("{num_records} new records created")
+    }
 }

@@ -1,5 +1,6 @@
 [package]
 name = "kepler"
+description = "Kepler vulnerability database search engine"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -8,18 +9,17 @@ license.workspace = true
 [dependencies]
 domain-db = { path = "../domain-db" }
 
-chrono = { version = "0.4.19", features = ["serde"] }
-clap = "3.1.5"
-env_logger = "0.9.0"
-log = "0.4.14"
-serde = { version = "1.0.136", features = ["derive"] }
-lru = "0.7.3"
+clap = {version = "4.3.15", features = ["derive"]}
+env_logger = "0.10.0"
+log = "0.4.19"
+serde = { version = "1.0.171", features = ["derive"] }
+lru = "0.11.0"
 lazy_static = "1.4.0"
-actix-web = "4.0.1"
-actix-cors = "0.6.0"
-tracing-log = "0.1.2"
-tracing = "0.1.31"
-tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
-tracing-actix-web = "0.5.1"
-anyhow = "1.0.66"
-serde_json = "1.0.79"
+actix-web = "4.3.1"
+actix-cors = "0.6.4"
+tracing-log = "0.1.3"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17 ", features = ["env-filter"] }
+tracing-actix-web = "0.7.5"
+anyhow = "1.0.72"
+serde_json = "1.0.103"

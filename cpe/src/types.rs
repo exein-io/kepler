@@ -8,12 +8,6 @@ pub enum CpeType {
     Application,
 }
 
-impl Default for CpeType {
-    fn default() -> Self {
-        Self::Any
-    }
-}
-
 impl TryFrom<&str> for CpeType {
     type Error = String;
     fn try_from(val: &str) -> Result<Self, Self::Error> {
