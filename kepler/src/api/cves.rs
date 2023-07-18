@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::{num::NonZeroUsize, sync::Mutex};
 
 use actix_web::web::{self, Json};
 use lazy_static::lazy_static;
@@ -12,13 +12,13 @@ use super::{
 };
 
 lazy_static! {
-    static ref CACHE: CveLruCache = CveLruCache::new(4096);
+    static ref CACHE: CveLruCache = CveLruCache::new(NonZeroUsize::new(4096).unwrap());
 }
 
 struct CveLruCache(Mutex<LruCache<Query, Vec<MatchedCVE>>>);
 
 impl CveLruCache {
-    fn new(cap: usize) -> Self {
+    fn new(cap: NonZeroUsize) -> Self {
         Self(Mutex::new(LruCache::new(cap)))
     }
 

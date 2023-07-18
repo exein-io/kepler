@@ -16,12 +16,6 @@ impl TryFrom<&str> for Component {
     }
 }
 
-impl Default for Component {
-    fn default() -> Self {
-        Component::Any
-    }
-}
-
 impl FromStr for Component {
     type Err = String;
 

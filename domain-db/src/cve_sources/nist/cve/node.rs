@@ -138,13 +138,7 @@ pub enum Operator {
     Or,
 }
 
-impl Default for Operator {
-    fn default() -> Self {
-        Operator::Or
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Node {
     pub operator: Operator,
     pub children: Vec<Node>,

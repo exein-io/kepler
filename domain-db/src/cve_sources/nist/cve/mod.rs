@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod node;
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Meta {
     #[serde(rename = "ID")]
     id: String,
@@ -12,30 +12,30 @@ pub struct Meta {
     assigner: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Reference {
     pub url: String,
     pub name: String,
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct References {
     pub reference_data: Vec<Reference>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DescriptionData {
     pub lang: String,
     pub value: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Description {
     pub description_data: Vec<DescriptionData>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Info {
     #[serde(rename = "CVE_data_meta")]
     pub meta: Meta,
@@ -45,24 +45,24 @@ pub struct Info {
     pub problem_type: ProblemType,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProblemType {
     #[serde(rename = "problemtype_data")]
     problem_type_data: Vec<ProblemTypeDataItem>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProblemTypeDataItem {
     pub description: Vec<ProblemTypeDescription>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProblemTypeDescription {
     pub lang: String,
     pub value: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV2 {
     pub version: String,
     #[serde(rename = "vectorString")]
@@ -82,7 +82,7 @@ pub struct CVSSV2 {
     pub base_score: f64,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV3 {
     pub version: String,
     #[serde(rename = "vectorString")]
@@ -108,7 +108,7 @@ pub struct CVSSV3 {
     pub base_severity: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV2 {
     #[serde(rename = "cvssV2")]
     pub cvss: CVSSV2,
@@ -129,7 +129,7 @@ pub struct ImpactMetricV2 {
     pub user_interaction_required: Option<bool>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV3 {
     #[serde(rename = "cvssV3")]
     pub cvss: CVSSV3,
@@ -139,7 +139,7 @@ pub struct ImpactMetricV3 {
     pub impact_score: f32,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Impact {
     // TODO: Implement V1?
     #[serde(rename = "baseMetricV2")]
@@ -148,14 +148,14 @@ pub struct Impact {
     pub metric_v3: Option<ImpactMetricV3>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Configurations {
     #[serde(rename = "CVE_data_version")]
     pub data_version: String,
     pub nodes: Vec<node::Node>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct CVE {
     pub cve: Info,

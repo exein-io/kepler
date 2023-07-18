@@ -1,20 +1,19 @@
-use std::ops::Deref;
 use std::time::Instant;
 
 use anyhow::{anyhow, bail, Context, Result};
 use diesel::insert_into;
+use diesel::migration::MigrationConnection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use r2d2::PooledConnection;
-use r2d2_diesel::ConnectionManager;
-
-pub mod models;
-pub mod schema;
-
+use diesel::r2d2::{self, ConnectionManager, PooledConnection};
+use diesel_migrations::{FileBasedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 use version_compare::Cmp;
 
 use crate::cve_sources::nist;
+
+pub mod models;
+pub mod schema;
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]
@@ -25,42 +24,52 @@ pub struct DatabaseError {
 
 pub struct PostgresRepository {
     pool: r2d2::Pool<ConnectionManager<PgConnection>>,
+    migrations: FileBasedMigrations,
 }
 
 impl PostgresRepository {
-    pub fn new(database_url: &str) -> Result<Self, DatabaseError> {
+    pub fn new(database_url: &str, migrations_directory: &str) -> Result<Self> {
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         let pool = r2d2::Pool::new(manager)?;
-        Ok(Self { pool })
+
+        let migrations = FileBasedMigrations::from_path(migrations_directory)?;
+
+        Ok(Self { pool, migrations })
     }
 }
 
 impl PostgresRepository {
     pub fn setup_database(&self) -> Result<usize> {
-        let conn = self.pool.get()?;
-        diesel_migrations::setup_database(&*conn).context("database setup failed")
+        let mut conn = self.pool.get()?;
+        conn.setup().context("database setup failed")
     }
 
     pub fn any_pending_migrations(&self) -> Result<bool> {
-        let conn = self.pool.get()?;
-        diesel_migrations::any_pending_migrations(&*conn)
+        let mut conn = self.pool.get()?;
+
+        conn.has_pending_migration(self.migrations.clone())
+            .map_err(|e| anyhow!(e))
             .context("failed checking pending migrations")
     }
 
     pub fn run_pending_migrations(&self) -> Result<()> {
-        let conn = self.pool.get()?;
-        diesel_migrations::run_pending_migrations(&*conn)
-            .context("failed runnign pending migrations")
+        let mut conn = self.pool.get()?;
+
+        conn.run_pending_migrations(self.migrations.clone())
+            .map_err(|e| anyhow!(e))
+            .context("failed running pending migrations")?;
+
+        Ok(())
     }
 
     pub fn create_object_if_not_exist(&self, values: models::NewObject) -> Result<i32> {
         use schema::objects::dsl::*;
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         let found = objects
             .filter(cve.eq(&values.cve))
-            .first::<models::Object>(conn.deref());
+            .first::<models::Object>(&mut conn);
 
         match found {
             Ok(obj) => return Ok(obj.id),
@@ -70,7 +79,7 @@ impl PostgresRepository {
 
         let object: models::Object = insert_into(objects)
             .values(values)
-            .get_result(conn.deref())
+            .get_result(&mut conn)
             .context("error inserting object")?;
 
         Ok(object.id)
@@ -79,7 +88,7 @@ impl PostgresRepository {
     pub fn create_cve_if_not_exist(&self, values: models::NewCVE) -> Result<bool> {
         use schema::cves::dsl::*;
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         // check if we have it already by (vendor, product, cve)
         let found: i64 = cves
@@ -90,7 +99,7 @@ impl PostgresRepository {
                     .and(cve.eq(&values.cve)),
             )
             .count()
-            .get_result(conn.deref())
+            .get_result(&mut conn)
             .context("error counting cves")?;
 
         if found > 0 {
@@ -100,7 +109,7 @@ impl PostgresRepository {
         // create it as a new record
         insert_into(cves)
             .values(values)
-            .execute(conn.deref())
+            .execute(&mut conn)
             .context("error creating cve")?;
 
         Ok(true)
@@ -109,7 +118,7 @@ impl PostgresRepository {
     pub fn delete_cve(&self, the_vendor: &str, the_product: &str, the_cve: &str) -> Result<usize> {
         use schema::cves::dsl::*;
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         diesel::delete(
             cves.filter(
@@ -119,19 +128,19 @@ impl PostgresRepository {
                     .and(cve.eq(the_cve)),
             ),
         )
-        .execute(conn.deref())
+        .execute(&mut conn)
         .context("error deleting cve")
     }
 
     pub fn get_products(&self) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         let prods: Vec<(String, String)> = cves
             .select((vendor, product))
             .distinct()
-            .get_results::<(String, String)>(conn.deref())
+            .get_results::<(String, String)>(&mut conn)
             .context("error fetching products")?;
 
         let products = prods
@@ -148,13 +157,13 @@ impl PostgresRepository {
     pub fn search_products(&self, query: &str) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         let prods: Vec<(String, String)> = cves
             .select((vendor, product))
             .distinct()
             .filter(product.like(format!("%{}%", query)))
-            .get_results::<(String, String)>(conn.deref())
+            .get_results::<(String, String)>(&mut conn)
             .context("error searching products")?;
 
         let products = prods
@@ -176,11 +185,11 @@ impl PostgresRepository {
             bail!("invalid version string");
         }
 
-        let conn = self.pool.get()?;
+        let mut conn = self.pool.get()?;
 
         // fetch potential candidates for this query
         let start = Instant::now();
-        let candidates = fetch_candidates(&conn, query.vendor.as_ref(), &query.product)?;
+        let candidates = fetch_candidates(&mut conn, query.vendor.as_ref(), &query.product)?;
         log::info!(
             "found {} candidates in {} ms",
             candidates.len(),
@@ -246,7 +255,7 @@ pub struct Query {
 }
 
 fn fetch_candidates(
-    conn: &PooledConnection<ConnectionManager<PgConnection>>,
+    conn: &mut PooledConnection<ConnectionManager<PgConnection>>,
     by_vendor: Option<&String>,
     by_product: &str,
 ) -> Result<Vec<(models::CVE, models::Object)>> {
@@ -257,12 +266,12 @@ fn fetch_candidates(
         (Some(v), p) => cves
             .filter(product.eq(p).and(vendor.eq(v)))
             .inner_join(objects)
-            .load(conn.deref())
+            .load(&mut *conn)
             .context("error searching records"),
         (None, p) => cves
             .filter(product.eq(p))
             .inner_join(objects)
-            .load(conn.deref())
+            .load(&mut *conn)
             .context("error searching records"),
     }
 }
