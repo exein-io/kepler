@@ -1,5 +1,5 @@
 # Build container
-FROM debian:buster AS builder
+FROM debian:bookworm AS builder
 
 RUN apt-get update && apt-get install -y curl libssl-dev libpq-dev build-essential pkg-config
 
@@ -12,7 +12,7 @@ ADD . ./
 RUN cargo build --release
 
 # Deploy container
-FROM debian:buster
+FROM debian:bookworm
 
 RUN apt-get update && apt-get install -y libssl-dev libpq-dev ca-certificates
 
