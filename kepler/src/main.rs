@@ -1,16 +1,16 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use configuration::DatabaseSettings;
 use domain_db::{cve_sources::nist, db};
 use dotenvy::dotenv;
 use env_logger::Env;
+use lazy_static::lazy_static;
 use std::{fs, path::Path};
 
+mod api;
 mod configuration;
 
-use kepler::api::{self, ApiConfig};
-
-use crate::configuration::ApiSettings;
+use crate::api::ApiConfig;
+use crate::configuration::{ApiSettings, DatabaseSettings};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -195,4 +195,17 @@ fn report_message(num_records: u32) -> String {
     } else {
         format!("{num_records} new records created")
     }
+}
+
+fn version() -> &'static str {
+    #[cfg(debug_assertions)]
+    lazy_static! {
+        static ref VERSION: String = format!("{}+dev", env!("CARGO_PKG_VERSION"));
+    }
+
+    #[cfg(not(debug_assertions))]
+    lazy_static! {
+        static ref VERSION: String = env!("CARGO_PKG_VERSION").to_string();
+    }
+    &VERSION
 }
