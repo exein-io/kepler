@@ -17,7 +17,7 @@ mod telemetry;
 pub use telemetry::init_logger;
 
 pub struct ApiConfig {
-    pub host: String,
+    pub address: String,
     pub port: u16,
     pub repository: PostgresRepository,
 }
@@ -44,7 +44,7 @@ pub fn run(api_config: ApiConfig) -> Result<Server, anyhow::Error> {
             .wrap(Cors::permissive())
             .wrap(tracing_actix_web::TracingLogger::default())
     })
-    .bind((api_config.host, api_config.port))?
+    .bind((api_config.address, api_config.port))?
     .run();
     Ok(server)
 }

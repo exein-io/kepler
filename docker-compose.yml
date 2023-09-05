@@ -26,7 +26,11 @@ services:
       - RUST_LOG=info
       - KEPLER_ADDRESS=0.0.0.0
       - KEPLER_PORT=8000
-      - DATABASE_URL=postgres://kepler:kepler@db/kepler
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=kepler
+      - DB_PASSWORD=kepler
+      - DB_DATABASE=kepler
     ports:
       - "8000:8000"
 

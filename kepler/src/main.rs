@@ -1,20 +1,28 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use configuration::DatabaseSettings;
 use domain_db::{cve_sources::nist, db};
+use dotenvy::dotenv;
 use env_logger::Env;
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
+
+mod configuration;
 
 use kepler::api::{self, ApiConfig};
+
+use crate::configuration::ApiSettings;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
     let opts = Opts::parse();
 
+    dotenv().ok();
+
     // Repository
     let repository = {
-        let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL environment variable has not specified.")?;
-        db::PostgresRepository::new(&database_url, "./migrations")
+        let db_settings = DatabaseSettings::try_from_env()?;
+
+        db::PostgresRepository::new(&db_settings.connection_string(), "./migrations")
             .context("Cannot connect to database")?
     };
 
@@ -70,22 +78,12 @@ async fn main() -> Result<()> {
             }
         },
         None => {
-            let host = env::var("KEPLER_ADDRESS")
-                .map_err(|_| "Invalid or missing custom address")
-                .unwrap_or_else(|err| {
-                    log::warn!("{}. Using default 0.0.0.0", err);
-                    "0.0.0.0".to_string()
-                });
-            let port = env::var("KEPLER_PORT")
-                .map_err(|_| "Invalid or missing custom port")
-                .and_then(|s| s.parse::<u16>().map_err(|_| "Failed to parse custom port"))
-                .unwrap_or_else(|err| {
-                    log::warn!("{}. Using default 8000", err);
-                    8000
-                });
+            let ApiSettings { address, port } = ApiSettings::try_from_env()?;
+
+            log::info!("Start listening on {}:{}...", address, port);
 
             let api_config = ApiConfig {
-                host,
+                address,
                 port,
                 repository,
             };
