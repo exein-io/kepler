@@ -175,15 +175,13 @@ pub fn import_nist(
                 refs.clone(),
                 Some(object_id),
             );
-            match repository.create_cve_if_not_exist(new_cve) {
-                Err(e) => bail!(e),
-                Ok(true) => num_imported += 1,
-                Ok(false) => {}
-            }
 
-            if num_imported > 0 && num_imported % 100 == 0 {
-                log::info!("imported {} records ...", num_imported);
-            }
+            if repository.create_cve_if_not_exist(new_cve)? {
+                num_imported += 1;
+                if num_imported % 100 == 0 {
+                    log::info!("imported {} records ...", num_imported);
+                }
+            };
         }
     }
 
