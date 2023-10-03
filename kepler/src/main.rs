@@ -4,6 +4,7 @@ use domain_db::{cve_sources::nist, db};
 use dotenvy::dotenv;
 use env_logger::Env;
 use lazy_static::lazy_static;
+use std::borrow::Cow;
 use std::{fs, path::Path};
 
 mod api;
@@ -184,11 +185,11 @@ pub fn import_nist(
     Ok(num_imported)
 }
 
-fn report_message(num_records: u32) -> String {
+fn report_message(num_records: u32) -> Cow<'static, str> {
     if num_records == 0 {
-        "No new records created".to_string()
+        Cow::Borrowed("No new records created")
     } else {
-        format!("{num_records} new records created")
+        Cow::Owned(format!("{num_records} new records created"))
     }
 }
 
