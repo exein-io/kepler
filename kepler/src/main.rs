@@ -151,13 +151,16 @@ pub fn import_nist(
             Ok(id) => id,
         };
 
-        let mut refs = Vec::new();
-        for data in &item.cve.references.reference_data {
-            refs.push(db::models::Reference {
+        let refs = item
+            .cve
+            .references
+            .reference_data
+            .iter()
+            .map(|data| db::models::Reference {
                 url: data.url.clone(),
                 tags: data.tags.clone(),
             })
-        }
+            .collect::<Vec<_>>();
 
         for product in item.collect_unique_products() {
             let new_cve = db::models::NewCVE::with(
