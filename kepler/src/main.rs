@@ -60,23 +60,21 @@ async fn main() -> Result<()> {
     }
 
     match opts.cmd {
-        Some(cmd) => match cmd {
-            Commands::ImportNist {
-                year,
-                data_dir,
-                refresh,
-            } => {
-                let data_path = check_data_path(&data_dir);
+        Some(Commands::ImportNist {
+            year,
+            data_dir,
+            refresh,
+        }) => {
+            let data_path = check_data_path(&data_dir);
 
-                let (_, cve_list) = nist::download(year, data_path, refresh)?;
+            let (_, cve_list) = nist::download(year, data_path, refresh)?;
 
-                let num_records = import_nist(&repository, cve_list)?;
+            let num_records = import_nist(&repository, cve_list)?;
 
-                let report = report_message(num_records);
+            let report = report_message(num_records);
 
-                log::info!("{report}");
-            }
-        },
+            log::info!("{report}");
+        }
         None => {
             let ApiSettings { address, port } = ApiSettings::try_from_env()?;
 
