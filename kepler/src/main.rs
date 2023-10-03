@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use domain_db::{cve_sources::nist, db};
 use dotenvy::dotenv;
@@ -144,12 +144,8 @@ pub fn import_nist(
     for item in &cve_list {
         let json = serde_json::to_string(item)?;
 
-        let object_id = match repository
-            .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))
-        {
-            Err(e) => bail!(e),
-            Ok(id) => id,
-        };
+        let object_id = repository
+            .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))?;
 
         let refs = item
             .cve
