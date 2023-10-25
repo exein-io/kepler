@@ -1,0 +1,69 @@
+name: Quality Checks
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  markdown-link-check:
+    name: Broken markdown links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+
+      - name: Run link check
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: "no"
+          use-verbose-mode: "yes"
+          check-modified-files-only: "no"
+          base-branch: ${{ github.head_ref }}
+
+  fmt:
+    name: Formatting (rustfmt)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - target: x86_64-unknown-linux-gnu
+
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.platform.target }}
+          components: rustfmt
+
+      - name: Formatting (rustfmt)
+        run: cargo fmt -- --check
+
+  lint:
+    name: Lint (clippy)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - target: x86_64-unknown-linux-gnu
+            args: ""
+
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.platform.target }}
+          components: clippy
+
+      - name: Clippy
+        run: cargo clippy --locked --target=${{ matrix.platform.target }} --workspace --all-targets ${{ matrix.platform.args }} -- -D warnings
+
+      - name: Check build did not modify any files
+        run: test -z "$(git status --porcelain)"
