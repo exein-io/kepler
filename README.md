@@ -2,8 +2,8 @@
     <img width="300" src="res/kepler-logo.png" alt="Kepler logo">
  
   <p>
-    <a href="https://github.com/Exein-io/kepler/actions/workflows/test.yml">
-      <img src="https://github.com/Exein-io/kepler/actions/workflows/test.yml/badge.svg?branch=main" alt="Lint and Tests">
+    <a href="https://github.com/Exein-io/kepler/actions/workflows/test.yaml">
+      <img src="https://github.com/Exein-io/kepler/actions/workflows/test.yaml/badge.svg?branch=main" alt="Test badge">
     </a>
     <a href="https://opensource.org/licenses/Apache-2.0">
       <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License">
