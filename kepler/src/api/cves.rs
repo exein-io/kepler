@@ -24,7 +24,7 @@ impl CveLruCache {
 
     fn get(&self, query: &Query) -> Option<Vec<MatchedCVE>> {
         let mut inner = self.0.lock().unwrap();
-        inner.get(query).map(Vec::clone)
+        inner.get(query).cloned()
     }
 
     fn put(&self, query: Query, cves: Vec<MatchedCVE>) -> Option<Vec<MatchedCVE>> {
