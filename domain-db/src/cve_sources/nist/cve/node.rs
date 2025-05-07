@@ -212,7 +212,7 @@ where
 {
     struct StringVisitor;
 
-    impl<'de> Visitor<'de> for StringVisitor {
+    impl Visitor<'_> for StringVisitor {
         type Value = cpe::CPE23;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
