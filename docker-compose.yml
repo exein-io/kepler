@@ -40,7 +40,6 @@ services:
       - kepler
     volumes:
       - ./ofelia.ini:/etc/ofelia/config.ini
-      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
-
+      - ${CONTAINER_SOCKET}:/var/run/docker.sock:ro
 volumes:
   kepler-db:
