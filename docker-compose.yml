@@ -1,10 +1,9 @@
-version: '3'
 services:
   db:
     image: postgres:14.1
     container_name: kepler-postgres
     volumes:
-      - ./db:/var/lib/postgresql/data
+      - kepler-db:/var/lib/postgresql/data
     restart: always
     environment:
       - POSTGRES_DB=kepler
@@ -41,4 +40,7 @@ services:
       - kepler
     volumes:
       - ./ofelia.ini:/etc/ofelia/config.ini
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
+
+volumes:
+  kepler-db:

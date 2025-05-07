@@ -19,13 +19,13 @@ Kepler is a vulnerability database and lookup store and API currently utilising 
 
 # Setup
 
-## Docker (recommended)
+## Podman (recommended)
 
 We provide a docker bundle with `kepler`, dedicated PostgreSQL database and [Ofelia](https://github.com/mcuadros/ofelia) as job scheduler for continuous update
 
 ```bash
-docker compose build
-docker compose up
+podman compose build
+podman compose up
 ```
 
 ### Database migration notes
@@ -41,21 +41,26 @@ cargo build --release
 
 # Data sources
 
-The system will automatically fetch and import new records every 3 hours if you use our [bundle](#docker-recommended), while historical data must be imported manually.
+The system will automatically fetch and import new records every 3 hours if you use our [bundle](#podman-recommended), while historical data must be imported manually.
 
 Kepler currently supports two data sources, [National Vulnerability Database](https://nvd.nist.gov/) and [NPM Advisories](https://npmjs.org/). You can import the data sources historically as follows.
 
 ## NIST Data
 
-To import NIST records from all available years (2002 to 2022):
+To import NIST records from all available years (2002 to 2025):
 
 ```bash
-for year in $(seq 2002 2022); do 
-    docker run --rm -v $(pwd)/data:/data \
-        -e DATABASE_URL=postgres://kepler:kepler@localhost:5432/kepler \
-	--network=kepler_default \
-	kepler:dev import_nist $year -d /data; 
-done 
+for year in $(seq 2002 2025); do 
+    podman run --rm \
+        -v $(pwd)/data:/data:Z \
+        -e DB_HOST=db \
+        -e DB_PORT=5432 \
+        -e DB_USER=kepler \
+        -e DB_PASSWORD=kepler \
+        -e DB_DATABASE=kepler \
+        --network=kepler_default \
+        kepler:dev import_nist $year -d /data
+done
 ```
 
 The system will automatically fetch and import new records records every 3 hours. 
@@ -97,3 +102,43 @@ curl \
 ```
 
 Responses are cached in memory with a LRU limit of 4096 elements.
+
+### Troubleshooting
+
+If you get the `linking with cc` error that looks similar to this one, you're likely missing some `c` related tooling or libs.
+
+```bash
+error: linking with `cc` failed: exit status: 1
+//...
+= note: /usr/bin/ld: cannot find -lpq: No such file or directory
+  collect2: error: ld returned 1 exit status
+```
+
+This one required Postgres related clib to be added.
+
+Fedora
+```bash
+sudo dnf install postgresql-devel
+```
+
+Arch
+```bash
+sudo pacman -S postgresql-libs
+```
+
+#### Use Docker instead of Podman
+
+If you are using Docker instead of Podman replace the following line in `docker/docker-compose.yaml`
+
+```yaml
+- /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
+```
+with the following:
+```yaml
+- /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+Use alias for podman commands
+```bash
+alias docker=podman
+```
