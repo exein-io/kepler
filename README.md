@@ -19,13 +19,33 @@ Kepler is a vulnerability database and lookup store and API currently utilising 
 
 # Setup
 
-## Docker (recommended)
+## [Docker](https://docs.docker.com/engine/install/) (recommended)
 
 We provide a docker bundle with `kepler`, dedicated PostgreSQL database and [Ofelia](https://github.com/mcuadros/ofelia) as job scheduler for continuous update
 
 ```bash
+export CONTAINER_SOCKET=/var/run/docker.sock
+```
+
+```bash
 docker compose build
 docker compose up
+```
+
+## [Podman](https://podman.io/docs/installation) (optional)
+
+```bash
+export CONTAINER_SOCKET=/run/user/1000/podman/podman.sock
+```
+
+```bash
+podman compose build
+podman compose up
+```
+Or just use an alias:
+
+```
+alias docker=podman
 ```
 
 ### Database migration notes
@@ -47,15 +67,20 @@ Kepler currently supports two data sources, [National Vulnerability Database](ht
 
 ## NIST Data
 
-To import NIST records from all available years (2002 to 2022):
+To import NIST records from all available years (2002 to 2025):
 
 ```bash
-for year in $(seq 2002 2022); do 
-    docker run --rm -v $(pwd)/data:/data \
-        -e DATABASE_URL=postgres://kepler:kepler@localhost:5432/kepler \
-	--network=kepler_default \
-	kepler:dev import_nist $year -d /data; 
-done 
+for year in $(seq 2002 2025); do 
+    docker run --rm \
+        -v $(pwd)/data:/data:Z \
+        -e DB_HOST=db \
+        -e DB_PORT=5432 \
+        -e DB_USER=kepler \
+        -e DB_PASSWORD=kepler \
+        -e DB_DATABASE=kepler \
+        --network=kepler_default \
+        kepler:dev import_nist $year -d /data
+done
 ```
 
 The system will automatically fetch and import new records records every 3 hours. 
@@ -97,3 +122,26 @@ curl \
 ```
 
 Responses are cached in memory with a LRU limit of 4096 elements.
+
+### Troubleshooting
+
+If you get the `linking with cc` error that looks similar to this one, you're likely missing some `c` related tooling or libs.
+
+```bash
+error: linking with `cc` failed: exit status: 1
+//...
+= note: /usr/bin/ld: cannot find -lpq: No such file or directory
+  collect2: error: ld returned 1 exit status
+```
+
+This one required Postgres related clib to be added.
+
+Fedora
+```bash
+sudo dnf install postgresql-devel
+```
+
+Arch
+```bash
+sudo pacman -S postgresql-libs
+```
