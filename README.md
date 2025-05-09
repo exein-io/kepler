@@ -42,7 +42,7 @@ export CONTAINER_SOCKET=/run/user/1000/podman/podman.sock
 podman compose build
 podman compose up
 ```
-Or just use alias
+Or just use an alias:
 
 ```
 alias docker=podman
