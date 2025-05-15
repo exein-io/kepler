@@ -51,6 +51,25 @@ alias docker=podman
 ### Database migration notes
 When the application starts checks for pending database migrations and automatically applies them. Remove the `--migrate` option to stop when a pending migration is detected
 
+## Migration runner (diesel-cli)
+
+If you're interested in adding new migrations you should check out and instal [Diesel-cli](https://diesel.rs/guides/getting-started).
+
+After you have `diesel-cli` [installed](https://diesel.rs/guides/getting-started#installing-diesel-cli), you can run:
+
+```bash
+diesel migration generate <name_your_migration>
+```
+
+This will generae `up.sql` and `down.sql` files which you can than apply with :
+
+```bash
+diesel migration run
+```
+
+- Or by re-starting your kepler conainer (this auto triggers migrations)
+
+
 ## Build from sources
 
 Alternatively you can build `kepler` from sources. To build you need `rust`, `cargo` and `libpg-dev` (or equivalent PostgreSQL library for your Linux distribution)
@@ -83,7 +102,43 @@ for year in $(seq 2002 2025); do
 done
 ```
 
-The system will automatically fetch and import new records records every 3 hours. 
+- System will automatically fetch and import new records records every 3 hours. (using schedulled `ofelia` job)
+
+- Append `--refresh` argument if you want to refetch from NVD source.
+
+Example - Refresh data for 2025
+
+```bash
+for year in $(seq 2025 2025); do 
+    docker run --rm \
+        -v $(pwd)/data:/data:Z \
+        -e DB_HOST=db \
+        -e DB_PORT=5432 \
+        -e DB_USER=kepler \
+        -e DB_PASSWORD=kepler \
+        -e DB_DATABASE=kepler \
+        --network=kepler_default \
+        kepler:dev import_nist $year -d /data --refresh
+done
+```
+
+### Database tear down
+
+If you want to rebuild your dabase. You would do it in these steps:
+
+```bash
+docker compose down -v # -v (bring down volumes)
+```
+
+```bash
+docker compose build # optional (if you made some backend changes)
+```
+
+```bash 
+docker compose up
+```
+
+Than re-trigger the [NIST data Import](#nist-data) step.
 
 # APIs
 

@@ -4,14 +4,16 @@ use serde::{Deserialize, Serialize};
 
 pub mod node;
 
+/// Meta contains metadata about the CVE, such as its ID and assigner.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Meta {
     #[serde(rename = "ID")]
-    id: String,
+    pub id: String,
     #[serde(rename = "ASSIGNER")]
-    assigner: Option<String>,
+    pub assigner: Option<String>,
 }
 
+/// Reference represents a reference to additional information about the CVE, such as a URL and tags.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Reference {
     pub url: String,
@@ -19,6 +21,7 @@ pub struct Reference {
     pub tags: Vec<String>,
 }
 
+/// References contains a list of references for a CVE.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct References {
     pub reference_data: Vec<Reference>,
@@ -45,6 +48,7 @@ pub struct Info {
     pub problem_type: ProblemType,
 }
 
+/// ProblemType represents the type of problem associated with a CVE, including descriptions in various languages.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProblemType {
     #[serde(rename = "problemtype_data")]
@@ -62,6 +66,9 @@ pub struct ProblemTypeDescription {
     pub value: String,
 }
 
+/// CvssMetricV2 object is optional.
+/// As of July 2022, the NVD no longer generates new information for CVSS v2.
+/// Existing CVSS v2 information will remain in the database but the NVD will no longer actively populate CVSS v2 for new CVEs.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV2 {
     pub version: String,
@@ -82,6 +89,9 @@ pub struct CVSSV2 {
     pub base_score: f64,
 }
 
+/// CvssMetricV3 object is optional.
+/// CVSSv3.0 was released in 2016, thus most CVE published before 2016 do not include the cvssMetricV3 object.
+/// The exception are CVE published before 2016 that were later reanalyzed or modified.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV3 {
     pub version: String,
@@ -108,6 +118,7 @@ pub struct CVSSV3 {
     pub base_severity: String,
 }
 
+/// ImpactMetricV2 is used to represent the impact metrics for CVE records in CVSS v2 format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV2 {
     #[serde(rename = "cvssV2")]
@@ -129,6 +140,7 @@ pub struct ImpactMetricV2 {
     pub user_interaction_required: Option<bool>,
 }
 
+/// ImpactMetricV3 is used to represent the impact metrics for CVE records in CVSS v3 format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV3 {
     #[serde(rename = "cvssV3")]
@@ -139,15 +151,16 @@ pub struct ImpactMetricV3 {
     pub impact_score: f32,
 }
 
+/// Impact is used to represent the impact of a CVE record, which can include both v2 and v3 metrics.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Impact {
-    // TODO: Implement V1?
     #[serde(rename = "baseMetricV2")]
     pub metric_v2: Option<ImpactMetricV2>,
     #[serde(rename = "baseMetricV3")]
     pub metric_v3: Option<ImpactMetricV3>,
 }
 
+/// Configurations holds the nodes that describe the affected products and versions for a CVE.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Configurations {
     #[serde(rename = "CVE_data_version")]
@@ -155,6 +168,7 @@ pub struct Configurations {
     pub nodes: Vec<node::Node>,
 }
 
+/// Common Vulnerabilities and Exposures (CVE) record from the NIST database.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct CVE {
@@ -204,6 +218,22 @@ impl CVE {
             .iter()
             .flat_map(|node| node.collect_unique_products())
             .collect()
+    }
+
+    pub fn extract_cve_score_severity_vector(&self) -> (f64, String, Option<String>) {
+        if let Some(v3) = self.impact.metric_v3.as_ref() {
+            let score = v3.cvss.base_score;
+            let severity = v3.cvss.base_severity.clone();
+            let vector = Some(v3.cvss.attack_vector.clone());
+            (score, severity, vector)
+        } else if let Some(v2) = self.impact.metric_v2.as_ref() {
+            let score = v2.cvss.base_score;
+            let severity = v2.severity.clone();
+            let vector = Some(v2.cvss.access_vector.clone());
+            (score, severity, vector)
+        } else {
+            (0.0, "".to_string(), None)
+        }
     }
 
     pub fn is_match(&mut self, product: &str, version: &str) -> bool {

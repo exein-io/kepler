@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use domain_db::{cve_sources::nist, db};
+use domain_db::{cve_sources::nist, db, db::BATCH_SIZE};
 use dotenvy::dotenv;
 use env_logger::Env;
 use lazy_static::lazy_static;
@@ -19,7 +19,6 @@ async fn main() -> Result<()> {
 
     dotenv().ok();
 
-    // Repository
     let repository = {
         let db_settings = DatabaseSettings::try_from_env()?;
 
@@ -137,17 +136,22 @@ fn check_data_path(data_path: &str) -> &Path {
 pub fn import_nist(
     repository: &db::PostgresRepository,
     cve_list: Vec<nist::cve::CVE>,
-) -> Result<u32> {
+) -> Result<usize> {
     log::info!("connected to database, importing records ...");
+    log::info!("{} CVEs pending import", cve_list.len());
 
     let mut num_imported = 0;
 
+    let objects_to_insert = db::create_unique_objects(&cve_list)?
+        .into_iter()
+        .map(|o| o.1)
+        .collect::<Vec<db::models::NewObject>>();
+
+    let inserted_object_ids = repository.insert_objects(objects_to_insert)?;
+
+    let mut new_cves: Vec<db::models::NewCVE> = Vec::with_capacity(BATCH_SIZE);
+
     for item in &cve_list {
-        let json = serde_json::to_string(item)?;
-
-        let object_id = repository
-            .create_object_if_not_exist(db::models::NewObject::with(item.id().into(), json))?;
-
         let refs = item
             .cve
             .references
@@ -160,32 +164,53 @@ pub fn import_nist(
             .collect::<Vec<_>>();
 
         for product in item.collect_unique_products() {
+            let (score, severity, vector) = item.extract_cve_score_severity_vector();
+
+            let object_id = inserted_object_ids
+                .get(item.id())
+                .cloned()
+                .context(format!("Object ID not found for CVE {}", item.id()))?;
+
             let new_cve = db::models::NewCVE::with(
                 nist::SOURCE_NAME.into(),
                 product.vendor,
                 product.product,
                 item.id().into(),
                 item.summary().map(str::to_string).unwrap_or_default(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
+                score,
+                severity,
+                vector,
                 refs.clone(),
                 Some(object_id),
             );
 
-            if repository.create_cve_if_not_exist(new_cve)? {
-                num_imported += 1;
-                if num_imported % 100 == 0 {
-                    log::info!("imported {} records ...", num_imported);
+            new_cves.push(new_cve);
+
+            // Batch insert
+            if new_cves.len() >= BATCH_SIZE {
+                let inserted = repository.batch_insert_cves(new_cves)?;
+                num_imported += inserted;
+                if num_imported > 0 {
+                    log::info!("bach imported {} cves ...", num_imported);
                 }
-            };
+
+                // Reset the collection for the next batch
+                new_cves = Vec::with_capacity(BATCH_SIZE);
+            }
         }
     }
 
+    // Batch insert Remaining CVEs
+    if !new_cves.is_empty() {
+        let inserted = repository.batch_insert_cves(new_cves)?;
+        num_imported += inserted;
+    }
+
+    log::info!("imported {} records Total", num_imported);
     Ok(num_imported)
 }
 
-fn report_message(num_records: u32) -> Cow<'static, str> {
+fn report_message(num_records: usize) -> Cow<'static, str> {
     if num_records == 0 {
         Cow::Borrowed("No new records created")
     } else {
