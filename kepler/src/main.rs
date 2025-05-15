@@ -144,12 +144,11 @@ pub fn import_nist(
 
     let objects_to_insert = db::create_unique_objects(&cve_list)?
         .into_iter()
-        .map(|o| o.1)
+        .map(|(_, new_object)| new_object)
         .collect::<Vec<db::models::NewObject>>();
 
     let inserted_object_ids = repository.insert_objects(objects_to_insert)?;
-
-    let mut new_cves: Vec<db::models::NewCVE> = Vec::with_capacity(BATCH_SIZE);
+    let mut new_cves_batch: Vec<db::models::NewCVE> = Vec::with_capacity(BATCH_SIZE);
 
     for item in &cve_list {
         let refs = item
@@ -184,25 +183,25 @@ pub fn import_nist(
                 Some(object_id),
             );
 
-            new_cves.push(new_cve);
+            new_cves_batch.push(new_cve);
 
             // Batch insert
-            if new_cves.len() >= BATCH_SIZE {
-                let inserted = repository.batch_insert_cves(new_cves)?;
+            if new_cves_batch.len() >= BATCH_SIZE {
+                let inserted = repository.batch_insert_cves(new_cves_batch)?;
                 num_imported += inserted;
                 if num_imported > 0 {
                     log::info!("bach imported {} cves ...", num_imported);
                 }
 
                 // Reset the collection for the next batch
-                new_cves = Vec::with_capacity(BATCH_SIZE);
+                new_cves_batch = Vec::with_capacity(BATCH_SIZE);
             }
         }
     }
 
     // Batch insert Remaining CVEs
-    if !new_cves.is_empty() {
-        let inserted = repository.batch_insert_cves(new_cves)?;
+    if !new_cves_batch.is_empty() {
+        let inserted = repository.batch_insert_cves(new_cves_batch)?;
         num_imported += inserted;
     }
 
