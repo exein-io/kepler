@@ -143,8 +143,7 @@ pub fn import_nist(
     let mut num_imported = 0;
 
     let objects_to_insert = db::create_unique_objects(&cve_list)?
-        .into_iter()
-        .map(|(_, new_object)| new_object)
+        .into_values()
         .collect::<Vec<db::models::NewObject>>();
 
     let inserted_object_ids = repository.insert_objects(objects_to_insert)?;

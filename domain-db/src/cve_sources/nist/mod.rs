@@ -183,17 +183,17 @@ mod tests {
     fn test_extract_score_severity_vector() {
         let path1 = Path::new(V2_V3_FIXTURE_1999);
         let path2 = Path::new(V2_V3_FIXTURE_2013);
-        let file1 = File::open(&path1);
-        let file2 = File::open(&path2);
+        let file1 = File::open(path1);
+        let file2 = File::open(path2);
 
-        assert_eq!(file1.is_ok(), true);
-        assert_eq!(file2.is_ok(), true);
+        assert!(file1.is_ok());
+        assert!(file2.is_ok());
 
         let reader = BufReader::new(file1.unwrap());
 
         let cve: serde_json::error::Result<cve::CVE> = serde_json::from_reader(reader);
 
-        assert_eq!(cve.is_ok(), true);
+        assert!(cve.is_ok());
 
         let (score, severity, vector) = extract_score_severity_vector(&cve.unwrap());
         assert_eq!(
@@ -205,7 +205,7 @@ mod tests {
 
         let cve: serde_json::error::Result<cve::CVE> = serde_json::from_reader(reader);
 
-        assert_eq!(cve.is_ok(), true);
+        assert!(cve.is_ok());
 
         let (score, severity, vector) = extract_score_severity_vector(&cve.unwrap());
         assert_eq!(
@@ -217,16 +217,16 @@ mod tests {
     #[test]
     fn test_cve_container_serializaion() {
         let path = Path::new(MULTI_CVE_FIXTURE_2002);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
@@ -243,16 +243,16 @@ mod tests {
     #[test]
     fn test_fields_score_severity_vector_v2() {
         let path = Path::new(MULTI_CVE_FIXTURE_2002);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
@@ -260,7 +260,7 @@ mod tests {
         // First CVE
         let metric_v2 = &cves[0].impact.metric_v2;
 
-        assert_eq!(metric_v2.is_some(), true);
+        assert!(metric_v2.is_some());
 
         if let Some(m) = metric_v2 {
             assert_eq!(m.cvss.base_score, 5.0);
@@ -292,23 +292,23 @@ mod tests {
     #[test]
     fn test_fields_score_severity_vector_v3() {
         let path = Path::new(MULTI_CVE_FIXTURE_2025);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
 
         // First CVE
         let metric_v3 = &cves[0].impact.metric_v3;
-        assert_eq!(metric_v3.is_some(), true);
+        assert!(metric_v3.is_some());
 
         if let Some(m) = metric_v3 {
             assert_eq!(m.cvss.base_score, 4.9);
@@ -319,7 +319,7 @@ mod tests {
 
         // Second CVE
         let metric_v3 = &cves[1].impact.metric_v3;
-        assert_eq!(metric_v3.is_some(), true);
+        assert!(metric_v3.is_some());
 
         if let Some(m) = metric_v3 {
             assert_eq!(m.cvss.base_score, 7.8);
@@ -330,7 +330,7 @@ mod tests {
 
         // Third CVE
         let metric_v3 = &cves[2].impact.metric_v3;
-        assert_eq!(metric_v3.is_some(), true);
+        assert!(metric_v3.is_some());
 
         if let Some(m) = metric_v3 {
             assert_eq!(m.cvss.base_score, 6.5);
@@ -348,14 +348,14 @@ mod tests {
     #[test]
     fn test_impact_metricv2() {
         let path = Path::new(V2_FIXTURE);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
         let cve: serde_json::error::Result<cve::CVE> = serde_json::from_reader(reader);
 
-        assert_eq!(cve.is_ok(), true);
+        assert!(cve.is_ok());
 
         let cve = cve.unwrap();
         let metric_v2 = &cve.impact.metric_v2;
@@ -367,14 +367,14 @@ mod tests {
     #[test]
     fn test_impact_metricv3() {
         let path = Path::new(V3_FIXTURE);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
         let cve: serde_json::error::Result<cve::CVE> = serde_json::from_reader(reader);
 
-        assert_eq!(cve.is_ok(), true);
+        assert!(cve.is_ok());
 
         let cve = cve.unwrap();
         let metric_v2 = &cve.impact.metric_v2;
@@ -386,22 +386,22 @@ mod tests {
     #[test]
     fn test_impact_metricv2_and_metricv3() {
         let path = Path::new(V2_V3_FIXTURE_1999);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve: serde_json::error::Result<cve::CVE> = serde_json::from_reader(reader);
 
-        assert_eq!(cve.is_ok(), true);
+        assert!(cve.is_ok());
 
         let cve = cve.unwrap();
         let metric_v2 = &cve.impact.metric_v2;
         let metric_v3 = &cve.impact.metric_v3;
 
-        assert_eq!(metric_v2.is_some(), true);
-        assert_eq!(metric_v3.is_some(), true);
+        assert!(metric_v2.is_some());
+        assert!(metric_v3.is_some());
     }
 
     #[test]
@@ -409,16 +409,16 @@ mod tests {
     fn test_all_cves_are_serialized_for_2002() {
         let path = &format!("{DATA_PATH}nvdcve-1.1-2002.json");
         let path = Path::new(path);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves_len = cve_container.CVE_Items.into_iter().len();
@@ -431,16 +431,16 @@ mod tests {
     fn test_all_cves_are_serialized_for_2025() {
         let path = &format!("{DATA_PATH}nvdcve-1.1-2025.json");
         let path = Path::new(path);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves_len = cve_container.CVE_Items.into_iter().len();
@@ -453,16 +453,16 @@ mod tests {
     fn test_all_cimplelte_cves_are_serialized_for_2025() {
         let path = &format!("{DATA_PATH}nvdcve-1.1-2025.json");
         let path = Path::new(path);
-        let file = File::open(&path);
+        let file = File::open(path);
 
-        assert_eq!(file.is_ok(), true);
+        assert!(file.is_ok());
 
         let reader = BufReader::new(file.unwrap());
 
         let cve_container: serde_json::error::Result<CVEContainer> =
             serde_json::from_reader(reader);
 
-        assert_eq!(cve_container.is_ok(), true);
+        assert!(cve_container.is_ok());
 
         let cve_container = cve_container.unwrap();
         let cves_len = cve_container
@@ -482,16 +482,16 @@ mod tests {
         for year in years {
             let path = format!("{DATA_PATH}nvdcve-1.1-{}.json", year);
             let path = Path::new(&path);
-            let file = File::open(&path);
+            let file = File::open(path);
 
-            assert_eq!(file.is_ok(), true);
+            assert!(file.is_ok());
 
             let reader = BufReader::new(file.unwrap());
 
             let cve_container: serde_json::error::Result<CVEContainer> =
                 serde_json::from_reader(reader);
 
-            assert_eq!(cve_container.is_ok(), true);
+            assert!(cve_container.is_ok());
             let cve_container = cve_container.unwrap();
 
             let expected_len: usize = cve_container
