@@ -104,7 +104,7 @@ done
 
 - System will automatically fetch and import new records records every 3 hours. (using schedulled `ofelia` job)
 
-- Append `--refresh` argument if you want to refetch from NVD source.
+- Append `--refresh` argument if you want to refetch from [National Vulnerability Database (NVD)](https://nvd.nist.gov/) source.
 
 Example - Refresh data for 2025
 
@@ -117,6 +117,7 @@ for year in $(seq 2025 2025); do
         -e DB_USER=kepler \
         -e DB_PASSWORD=kepler \
         -e DB_DATABASE=kepler \
+        -e BATCH_SIZE=5000 \
         --network=kepler_default \
         kepler:dev import_nist $year -d /data --refresh
 done

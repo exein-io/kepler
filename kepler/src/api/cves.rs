@@ -7,8 +7,8 @@ use lru::LruCache;
 use domain_db::db::{MatchedCVE, Query};
 
 use super::{
-    error::{bad_request_body, handle_blocking_error, ApplicationError},
     ApplicationContext,
+    error::{ApplicationError, bad_request_body, handle_blocking_error},
 };
 
 lazy_static! {

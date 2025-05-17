@@ -135,7 +135,10 @@ impl fmt::Display for CPE23 {
             other,
         } = self;
 
-        write!(f, "cpe:2.3:{what:#}:{vendor}:{product}:{version}:{update}:{edition}:{language}:{sw_edition}:{target_sw}:{target_hw}:{other}")?;
+        write!(
+            f,
+            "cpe:2.3:{what:#}:{vendor}:{product}:{version}:{update}:{edition}:{language}:{sw_edition}:{target_sw}:{target_hw}:{other}"
+        )?;
 
         Ok(())
     }

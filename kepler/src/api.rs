@@ -1,8 +1,8 @@
 use actix_cors::Cors;
 use actix_web::{
+    App, HttpServer,
     dev::Server,
     web::{self, Data, Json},
-    App, HttpServer,
 };
 
 use serde::Serialize;

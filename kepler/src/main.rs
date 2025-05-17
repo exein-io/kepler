@@ -138,6 +138,7 @@ pub fn import_nist(
     cve_list: Vec<nist::cve::CVE>,
 ) -> Result<usize> {
     log::info!("connected to database, importing records ...");
+    log::info!("configured 'BATCH_SIZE' {}", &*BATCH_SIZE);
     log::info!("{} CVEs pending import", cve_list.len());
 
     let mut num_imported = 0;
@@ -147,7 +148,7 @@ pub fn import_nist(
         .collect::<Vec<db::models::NewObject>>();
 
     let inserted_object_ids = repository.insert_objects(objects_to_insert)?;
-    let mut new_cves_batch: Vec<db::models::NewCVE> = Vec::with_capacity(BATCH_SIZE);
+    let mut new_cves_batch: Vec<db::models::NewCVE> = Vec::with_capacity(*BATCH_SIZE);
 
     for item in &cve_list {
         let refs = item
@@ -185,7 +186,7 @@ pub fn import_nist(
             new_cves_batch.push(new_cve);
 
             // Batch insert
-            if new_cves_batch.len() >= BATCH_SIZE {
+            if new_cves_batch.len() >= *BATCH_SIZE {
                 let inserted = repository.batch_insert_cves(new_cves_batch)?;
                 num_imported += inserted;
                 if num_imported > 0 {
@@ -193,7 +194,7 @@ pub fn import_nist(
                 }
 
                 // Reset the collection for the next batch
-                new_cves_batch = Vec::with_capacity(BATCH_SIZE);
+                new_cves_batch = Vec::with_capacity(*BATCH_SIZE);
             }
         }
     }

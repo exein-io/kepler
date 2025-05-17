@@ -6,13 +6,15 @@ members = ["cpe", "domain-db", "kepler"]
 [workspace.package]
 version = "0.2.0"
 authors = ["Exein <engineering@exein.io>"]
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 
 
 [workspace.dependencies]
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.103"
+serde = { version = "^1", features = ["derive"] }
+serde_json = "^1"
+anyhow = "^1"
 log = "0.4"
-anyhow = "1"
 chrono = { version = "0.4.40", features = ["clock"] }
+dotenvy = "0.15"
+test-case = "3.3.0"

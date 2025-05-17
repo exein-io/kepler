@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::env;
+use std::sync::LazyLock;
 use std::time::Instant;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use diesel::insert_into;
 use diesel::migration::MigrationConnection;
 use diesel::pg::PgConnection;
@@ -16,7 +18,18 @@ use crate::cve_sources::nist;
 pub mod models;
 pub mod schema;
 
-pub const BATCH_SIZE: usize = 5000;
+/// Configured batch size for inserting objects into the database.
+/// Maximum allowed size is 65535 parameters per query in PostgreSQL, so we set a default of 5000.
+///
+/// We can set it to maximum of about 5500 for current [`domain_db::db::NewCVE`] parameteer count.
+///
+/// DOCS: https://www.postgresql.org/docs/current/limits.html
+pub static BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env::var("BATCH_SIZE")
+        .ok()
+        .and_then(|val| val.parse::<usize>().ok())
+        .unwrap_or(5000)
+});
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]
@@ -74,13 +87,13 @@ impl PostgresRepository {
         &self,
         objects_to_insert: Vec<models::NewObject>,
     ) -> Result<HashMap<String, i32>> {
-        let mut inserted_object_ids: HashMap<String, i32> = HashMap::new();
+        let mut inserted_object_ids = HashMap::new();
 
         if objects_to_insert.is_empty() {
             return Ok(inserted_object_ids);
         }
 
-        for chunk in objects_to_insert.chunks(BATCH_SIZE) {
+        for chunk in objects_to_insert.chunks(*BATCH_SIZE) {
             let inserted_ids: HashMap<String, i32> = self
                 .batch_insert_objects(chunk.to_vec())?
                 .into_iter()
@@ -277,19 +290,17 @@ impl PostgresRepository {
 
 /// Create unique objects from the CVE list
 pub fn create_unique_objects(
-    cve_list: &Vec<nist::cve::CVE>,
+    cve_list: &[nist::cve::CVE],
 ) -> Result<HashMap<String, models::NewObject>> {
-    let mut distinct_objects_to_insert: HashMap<String, models::NewObject> = HashMap::new();
-
-    for item in cve_list {
-        let json = serde_json::to_string(item)?;
-
-        distinct_objects_to_insert.insert(
-            item.id().into(),
-            models::NewObject::with(item.id().into(), json.clone()),
-        );
-    }
-    Ok(distinct_objects_to_insert)
+    Ok(cve_list
+        .iter()
+        .filter_map(|item| {
+            serde_json::to_string(item).ok().map(|json| {
+                let id = item.id().to_string();
+                (id.clone(), models::NewObject::with(id, json))
+            })
+        })
+        .collect())
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]
