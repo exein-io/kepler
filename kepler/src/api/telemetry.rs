@@ -1,5 +1,5 @@
-use tracing::subscriber::set_global_default;
 use tracing::Subscriber;
+use tracing::subscriber::set_global_default;
 use tracing_log::LogTracer;
 use tracing_subscriber::EnvFilter;
 

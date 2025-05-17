@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use domain_db::db::models::Product;
 
 use super::{
-    error::{bad_request_body, handle_blocking_error, internal_server_error, ApplicationError},
     ApplicationContext,
+    error::{ApplicationError, bad_request_body, handle_blocking_error, internal_server_error},
 };
 
 pub async fn all(

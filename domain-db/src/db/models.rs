@@ -19,7 +19,7 @@ pub struct Object {
     pub data: String,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = objects)]
 pub struct NewObject {
     pub created_at: SystemTime,
