@@ -124,6 +124,8 @@ mod tests {
     const V2_V3_FIXTURE_2013: &str = include_str!("../../db/fixtures/single_CVE-2013-0159.json");
     const V2_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-1999-0208.json");
     const V3_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-2025-0410.json");
+
+    #[cfg(feature = "long-running-test")]
     const DATA_PATH: &str = "../data/";
 
     fn extract_score_severity_vector(item: &cve::CVE) -> (f64, String, Option<String>) {

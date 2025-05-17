@@ -40,7 +40,7 @@ services:
     depends_on:
       - kepler
     volumes:
-      - ./ofelia.ini:/etc/ofelia/config.ini
+      - ./ofelia.ini:/etc/ofelia/config.ini:z
       - ${CONTAINER_SOCKET}:/var/run/docker.sock:ro
 volumes:
   kepler-db:

@@ -29,7 +29,7 @@ export CONTAINER_SOCKET=/var/run/docker.sock
 
 ```bash
 docker compose build
-docker compose up
+docker-compose up
 ```
 
 ## [Podman](https://podman.io/docs/installation) (optional)
@@ -40,8 +40,9 @@ export CONTAINER_SOCKET=/run/user/1000/podman/podman.sock
 
 ```bash
 podman compose build
-podman compose up
+podman-compose up
 ```
+
 Or just use an alias:
 
 ```
