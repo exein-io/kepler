@@ -17,7 +17,7 @@ services:
     container_name: kepler
     image: kepler:dev
     volumes:
-      - ./data:/data
+      - ./data:/data:Z
     depends_on:
       - db
     environment:
@@ -30,6 +30,7 @@ services:
       - DB_USER=kepler
       - DB_PASSWORD=kepler
       - DB_DATABASE=kepler
+      - KEPLER_BATCH_SIZE=5000 
     ports:
       - "8000:8000"
 
@@ -39,7 +40,7 @@ services:
     depends_on:
       - kepler
     volumes:
-      - ./ofelia.ini:/etc/ofelia/config.ini
+      - ./ofelia.ini:/etc/ofelia/config.ini:z
       - ${CONTAINER_SOCKET}:/var/run/docker.sock:ro
 volumes:
   kepler-db:

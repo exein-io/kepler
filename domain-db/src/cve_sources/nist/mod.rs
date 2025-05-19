@@ -107,3 +107,212 @@ pub struct CVEContainer {
     pub CVE_data_timestamp: String,
     pub CVE_Items: Vec<cve::CVE>,
 }
+
+// cargo test -p domain-db --lib -- --nocapture
+// cargo test -p domain-db --features long-running-test
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    // Fixtures
+    const MULTI_CVE_FIXTURE_2002: &str =
+        include_str!("../../db/fixtures/multiple_nvdcve-1.1-2002.json");
+    const MULTI_CVE_FIXTURE_2025: &str =
+        include_str!("../../db/fixtures/multiple_nvdcve-1.1-2025.json");
+    const V2_V3_FIXTURE_1999: &str = include_str!("../../db/fixtures/single_CVE-1999-0199.json");
+    const V2_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-1999-0208.json");
+    const V3_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-2025-0410.json");
+
+    #[cfg(feature = "long-running-test")]
+    const DATA_PATH: &str = "../data/";
+
+    #[test]
+    fn test_cve_container_serializaion() {
+        let cve_container: serde_json::error::Result<CVEContainer> =
+            serde_json::from_str(MULTI_CVE_FIXTURE_2002);
+        let cve_container = cve_container.unwrap();
+        let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
+
+        assert_eq!(
+            cves.into_iter()
+                .map(|x| x.cve.meta.id)
+                .collect::<Vec<String>>(),
+            vec!["CVE-1999-0001", "CVE-1999-0002", "CVE-1999-0003"]
+        );
+    }
+
+    #[test_case(0, 5.0, 2.9, "MEDIUM", "NETWORK")]
+    #[test_case(1, 10.0, 10.0, "HIGH", "NETWORK")]
+    #[test_case(2, 10.0, 10.0, "HIGH", "NETWORK")]
+    fn test_fields_score_severity_vector_v2_case(
+        idx: usize,
+        expected_base_score: f64,
+        expected_impact_score: f32,
+        expected_severity: &str,
+        expected_access_vector: &str,
+    ) {
+        let cve_container: serde_json::error::Result<CVEContainer> =
+            serde_json::from_str(MULTI_CVE_FIXTURE_2002);
+        let cve_container = cve_container.unwrap();
+        let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
+
+        let metric_v2 = &cves[idx].impact.metric_v2;
+        let actual = metric_v2.as_ref().map(|m| {
+            (
+                m.cvss.base_score,
+                m.impact_score,
+                m.severity.as_str(),
+                m.cvss.access_vector.as_str(),
+            )
+        });
+
+        let expected = Some((
+            expected_base_score,
+            expected_impact_score,
+            expected_severity,
+            expected_access_vector,
+        ));
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test_case(0, 4.9, 3.6, "MEDIUM", "NETWORK")]
+    #[test_case(1, 7.8, 5.9, "HIGH", "LOCAL")]
+    #[test_case(2, 6.5, 3.6, "MEDIUM", "NETWORK")]
+    fn test_fields_score_severity_vector_v3_case(
+        idx: usize,
+        expected_base_score: impl Into<Option<f64>>,
+        expected_impact_score: impl Into<Option<f32>>,
+        expected_severity: &str,
+        expected_attack_vector: &str,
+    ) {
+        let cve_container: serde_json::error::Result<CVEContainer> =
+            serde_json::from_str(MULTI_CVE_FIXTURE_2025);
+        let cve_container = cve_container.unwrap();
+        let cves: Vec<cve::CVE> = cve_container.CVE_Items.into_iter().collect();
+
+        let metric_v3 = &cves[idx].impact.metric_v3;
+        let actual = metric_v3
+            .as_ref()
+            .map(|m| {
+                (
+                    Some(m.cvss.base_score),
+                    Some(m.impact_score),
+                    m.cvss.base_severity.as_str(),
+                    m.cvss.attack_vector.as_str(),
+                )
+            })
+            .unwrap();
+
+        let expected = (
+            expected_base_score.into(),
+            expected_impact_score.into(),
+            expected_severity,
+            expected_attack_vector,
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test_case("v2", V2_FIXTURE, true, true ; "only v2")]
+    #[test_case("v3", V3_FIXTURE, true, true ; "only v3")]
+    #[test_case("v2v3", V2_V3_FIXTURE_1999, true, true ; "both v2 and v3")]
+    fn test_impact_metric_cases(
+        _case: &str,
+        fixture: &str,
+        expected_first: bool,
+        expected_second: bool,
+    ) {
+        let cve: serde_json::error::Result<cve::CVE> = serde_json::from_str(fixture);
+        let cve = cve.unwrap();
+        let metric_v2 = &cve.impact.metric_v2;
+        let metric_v3 = &cve.impact.metric_v3;
+
+        let actual = match _case {
+            "v2" => (metric_v2.is_some(), metric_v3.is_none()),
+            "v3" => (metric_v2.is_none(), metric_v3.is_some()),
+            "v2v3" => (metric_v2.is_some(), metric_v3.is_some()),
+            _ => panic!("Unknown case"),
+        };
+
+        assert_eq!(actual, (expected_first, expected_second));
+    }
+
+    #[cfg(feature = "long-running-test")]
+    #[test_case("{DATA_PATH}nvdcve-1.1-2002.json", 6768)]
+    #[test_case("{DATA_PATH}nvdcve-1.1-2025.json", 12266)]
+    fn test_all_cves_are_serialized_for_year(path_template: &str, expected_count: usize) {
+        let path = &path_template.replace("{DATA_PATH}", DATA_PATH);
+        let path = Path::new(path);
+        let file = File::open(path);
+        let reader = BufReader::new(file.unwrap());
+
+        let cve_container: serde_json::error::Result<CVEContainer> =
+            serde_json::from_reader(reader);
+
+        let cve_container = cve_container.unwrap();
+        let cves_len = cve_container.CVE_Items.into_iter().len();
+
+        assert_eq!(cves_len, expected_count);
+    }
+
+    #[cfg(feature = "long-running-test")]
+    #[test_case("{DATA_PATH}nvdcve-1.1-2025.json")]
+    fn test_all_complelte_cves_are_serialized_for_2025(path_template: &str) {
+        let path = &path_template.replace("{DATA_PATH}", DATA_PATH);
+        let path = Path::new(path);
+        let file = File::open(path);
+        let reader = BufReader::new(file.unwrap());
+        let cve_container: serde_json::error::Result<CVEContainer> =
+            serde_json::from_reader(reader);
+
+        let cve_container = cve_container.unwrap();
+        let cves_len = cve_container
+            .CVE_Items
+            .iter()
+            .filter(|cve| cve.is_complete())
+            .count();
+
+        assert_eq!(cves_len, 3457);
+    }
+
+    #[cfg(feature = "long-running-test")]
+    #[test]
+    fn test_all_cves_are_serialized_from_2002_to_2025() {
+        let years = 2002..=chrono::Utc::now().year();
+
+        for year in years {
+            let path = format!("{DATA_PATH}nvdcve-1.1-{}.json", year);
+            let path = Path::new(&path);
+            let file = File::open(path).unwrap();
+            let reader = BufReader::new(file);
+
+            let cve_container: serde_json::error::Result<CVEContainer> =
+                serde_json::from_reader(reader);
+
+            let cve_container = cve_container.unwrap();
+
+            let expected_len: usize = cve_container
+                .CVE_data_numberOfCVEs
+                .parse()
+                .unwrap_or_default();
+
+            let actual_len = cve_container.CVE_Items.into_iter().len();
+
+            println!(
+                "Expected count: {} | Actual count: {} | Path: {}",
+                expected_len,
+                actual_len,
+                path.display()
+            );
+
+            assert_eq!(actual_len, expected_len);
+        }
+    }
+    /* Example output: (includeing "non-cmplete" CVEs)
+        Expected count: 6768  | Actual count: 6768  | Path: ../data/nvdcve-1.1-2002.json
+        Expected count: 1550  | Actual count: 1550  | Path: ../data/nvdcve-1.1-2003.json
+        ...
+    */
+}

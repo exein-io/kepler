@@ -4,14 +4,16 @@ use serde::{Deserialize, Serialize};
 
 pub mod node;
 
+/// Meta contains metadata about the [`CVE`]., such as its ID and assigner.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Meta {
     #[serde(rename = "ID")]
-    id: String,
+    pub id: String,
     #[serde(rename = "ASSIGNER")]
-    assigner: Option<String>,
+    pub assigner: Option<String>,
 }
 
+/// Reference represents a reference to additional information about the [`CVE`], such as a URL and tags.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Reference {
     pub url: String,
@@ -19,6 +21,7 @@ pub struct Reference {
     pub tags: Vec<String>,
 }
 
+/// References contains a list of [`Reference`]s for a [`CVE`].
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct References {
     pub reference_data: Vec<Reference>,
@@ -45,6 +48,7 @@ pub struct Info {
     pub problem_type: ProblemType,
 }
 
+/// ProblemType represents the type of problem associated with a [`CVE`]., including descriptions in various languages.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProblemType {
     #[serde(rename = "problemtype_data")]
@@ -62,6 +66,35 @@ pub struct ProblemTypeDescription {
     pub value: String,
 }
 
+/// CvssMetricV2 object is optional.
+/// As of July 2022, the NVD no longer generates new information for CVSS v2.
+/// Existing CVSS v2 information will remain in the database but the NVD will no longer actively populate CVSS v2 for new CVEs.
+///
+/// Example json
+/// ```json
+///   "baseMetricV2": {
+///     "cvssV2": {
+///       "version": "2.0",
+///       "vectorString": "AV:L/AC:L/Au:N/C:N/I:P/A:P",
+///       "accessVector": "LOCAL",
+///       "accessComplexity": "LOW",
+///       "authentication": "NONE",
+///       "confidentialityImpact": "NONE",
+///       "integrityImpact": "PARTIAL",
+///       "availabilityImpact": "PARTIAL",
+///       "baseScore": 3.6
+///     },
+///     "severity": "LOW",
+///     "exploitabilityScore": 3.9,
+///     "impactScore": 4.9,
+///     "acInsufInfo": true,
+///     "obtainAllPrivilege": false,
+///     "obtainUserPrivilege": false,
+///     "obtainOtherPrivilege": false,
+///     "userInteractionRequired": false
+///   }
+/// }
+/// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV2 {
     pub version: String,
@@ -82,6 +115,32 @@ pub struct CVSSV2 {
     pub base_score: f64,
 }
 
+/// CvssMetricV3 object is optional.
+/// CVSSv3.0 was released in 2016, thus most [`CVE`] published before 2016 do not include the [`CVSSV3`] object.
+/// The exception are [`CVE`] published before 2016 that were later reanalyzed or modified.
+///
+/// Example json
+/// ```json
+/// {
+///   "baseMetricV3": {
+///     "cvssV3": {
+///       "version": "3.0",
+///       "vectorString": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+///       "attackVector": "LOCAL",
+///       "attackComplexity": "LOW",
+///       "privilegesRequired": "LOW",
+///       "userInteraction": "NONE",
+///       "scope": "UNCHANGED",
+///       "confidentialityImpact": "NONE",
+///       "integrityImpact": "HIGH",
+///       "availabilityImpact": "HIGH",
+///       "baseScore": 7.1,
+///       "baseSeverity": "HIGH"
+///     },
+///     "exploitabilityScore": 1.8,
+///     "impactScore": 5.2
+///   },
+/// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CVSSV3 {
     pub version: String,
@@ -108,6 +167,7 @@ pub struct CVSSV3 {
     pub base_severity: String,
 }
 
+/// [`ImpactMetricV2`] is used to represent the [`Impact`] metrics for [`CVE`] records in [`CVSSV2`] format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV2 {
     #[serde(rename = "cvssV2")]
@@ -129,6 +189,7 @@ pub struct ImpactMetricV2 {
     pub user_interaction_required: Option<bool>,
 }
 
+/// [`ImpactMetricV3`] is used to represent the [`Impact`] metrics for [`CVE`] records in [`CVSSV3`] format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV3 {
     #[serde(rename = "cvssV3")]
@@ -139,15 +200,16 @@ pub struct ImpactMetricV3 {
     pub impact_score: f32,
 }
 
+/// [`Impact`] is used to represent the impact of a [`CVE`] record, which can include both [`ImpactMetricV2`] and [`ImpactMetricV3`] metrics.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Impact {
-    // TODO: Implement V1?
     #[serde(rename = "baseMetricV2")]
     pub metric_v2: Option<ImpactMetricV2>,
     #[serde(rename = "baseMetricV3")]
     pub metric_v3: Option<ImpactMetricV3>,
 }
 
+/// [`Configurations`] holds the nodes that describe the affected products and versions for a [`CVE`].
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Configurations {
     #[serde(rename = "CVE_data_version")]
@@ -155,6 +217,7 @@ pub struct Configurations {
     pub nodes: Vec<node::Node>,
 }
 
+/// Common Vulnerabilities and Exposures [`CVE`] record from the NIST database.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct CVE {
@@ -206,6 +269,22 @@ impl CVE {
             .collect()
     }
 
+    pub fn extract_cve_score_severity_vector(&self) -> (f64, String, Option<String>) {
+        if let Some(v3) = self.impact.metric_v3.as_ref() {
+            let score = v3.cvss.base_score;
+            let severity = v3.cvss.base_severity.clone();
+            let vector = Some(v3.cvss.attack_vector.clone());
+            (score, severity, vector)
+        } else if let Some(v2) = self.impact.metric_v2.as_ref() {
+            let score = v2.cvss.base_score;
+            let severity = v2.severity.clone();
+            let vector = Some(v2.cvss.access_vector.clone());
+            (score, severity, vector)
+        } else {
+            (0.0, "".to_string(), None)
+        }
+    }
+
     pub fn is_match(&mut self, product: &str, version: &str) -> bool {
         for root in &mut self.configurations.nodes {
             // roots are implicitly in OR
@@ -214,5 +293,35 @@ impl CVE {
             }
         }
         false
+    }
+}
+
+// cargo test -p domain-db --lib -- --nocapture
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use test_case::test_case;
+
+    const V2_V3_FIXTURE_1999: &str = include_str!("../../../db/fixtures/single_CVE-1999-0199.json");
+    const V2_V3_FIXTURE_2013: &str = include_str!("../../../db/fixtures/single_CVE-2013-0159.json");
+
+    #[test_case(V2_V3_FIXTURE_1999, 9.8, "CRITICAL", Some("NETWORK"))]
+    #[test_case(V2_V3_FIXTURE_2013, 7.1, "HIGH", Some("LOCAL"))]
+    fn test_extract_score_severity_vector(
+        fixture: &str,
+        expected_score: f64,
+        expected_severity: &str,
+        expected_vector: Option<&str>,
+    ) {
+        let cve: serde_json::error::Result<CVE> = serde_json::from_str(fixture);
+        let actual = cve.unwrap().extract_cve_score_severity_vector();
+
+        let expected = (
+            expected_score,
+            expected_severity.to_string(),
+            expected_vector.map(|s| s.to_string()),
+        );
+        assert_eq!(actual, expected);
     }
 }

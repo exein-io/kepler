@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+use std::env;
+use std::sync::LazyLock;
 use std::time::Instant;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use diesel::insert_into;
 use diesel::migration::MigrationConnection;
 use diesel::pg::PgConnection;
@@ -14,6 +17,19 @@ use crate::cve_sources::nist;
 
 pub mod models;
 pub mod schema;
+
+/// Configured batch size for inserting objects into the database.
+/// Maximum allowed size is 65535 parameters per query in PostgreSQL, so we set a default of 5000.
+///
+/// We can set it to maximum of about 5500 for current [`domain_db::db::NewCVE`] parameteer count.
+///
+/// DOCS: https://www.postgresql.org/docs/current/limits.html
+pub static KEPLER_BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env::var("KEPLER_BATCH_SIZE")
+        .ok()
+        .and_then(|val| val.parse::<usize>().ok())
+        .unwrap_or(5000)
+});
 
 #[derive(thiserror::Error, Debug)]
 #[error("Database error.")]
@@ -62,57 +78,82 @@ impl PostgresRepository {
         Ok(())
     }
 
-    pub fn create_object_if_not_exist(&self, values: models::NewObject) -> Result<i32> {
-        use schema::objects::dsl::*;
+    /// Insert a list of objects into the database if they don't already exist.
+    ///
+    /// Insertion is done in batches of size `KEPLER_BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
+    ///
+    /// Returns a [`HashMap<String, i32>`] of CVE IDs to their assigned object IDs.
+    pub fn insert_objects(
+        &self,
+        objects_to_insert: Vec<models::NewObject>,
+    ) -> Result<HashMap<String, i32>> {
+        let mut inserted_object_ids = HashMap::new();
 
-        let mut conn = self.pool.get()?;
-
-        let found = objects
-            .filter(cve.eq(&values.cve))
-            .first::<models::Object>(&mut conn);
-
-        match found {
-            Ok(obj) => return Ok(obj.id),
-            Err(diesel::result::Error::NotFound) => {}
-            Err(e) => bail!(e),
+        if objects_to_insert.is_empty() {
+            return Ok(inserted_object_ids);
         }
 
-        let object: models::Object = insert_into(objects)
-            .values(values)
-            .get_result(&mut conn)
-            .context("error inserting object")?;
+        for chunk in objects_to_insert.chunks(*KEPLER_BATCH_SIZE) {
+            let inserted_ids: HashMap<String, i32> =
+                self.batch_insert_objects(chunk)?.into_iter().collect();
 
-        Ok(object.id)
+            inserted_object_ids.extend(inserted_ids);
+        }
+        Ok(inserted_object_ids)
     }
 
-    pub fn create_cve_if_not_exist(&self, values: models::NewCVE) -> Result<bool> {
+    /// Inserts [`schema::objects`] into database in batches of size `KEPLER_BATCH_SIZE`
+    pub fn batch_insert_objects(
+        &self,
+        values_list: &[models::NewObject],
+    ) -> Result<Vec<(String, i32)>> {
+        use schema::objects::dsl::*;
+
+        let object_cves: Vec<String> = values_list.iter().map(|obj| obj.cve.clone()).collect();
+
+        let mut conn = self.pool.get()?;
+        conn.transaction(|conn| {
+            let inserted_count = diesel::insert_into(objects)
+                .values(values_list)
+                .on_conflict(cve)
+                .do_nothing()
+                .execute(conn)
+                .context("error creating objects in batch")?;
+
+            if inserted_count > 0 {
+                log::info!("batch imported {} object records ...", inserted_count);
+            } else {
+                log::warn!("Zero object records are inserted!");
+            }
+
+            let inserted_objects = objects
+                .filter(cve.eq_any(&object_cves))
+                .select((cve, id))
+                // Query back the inserted records to get their assigned IDs
+                .load(conn)
+                .context("error retrieving inserted object IDs")?;
+
+            Ok(inserted_objects)
+        })
+    }
+
+    /// Batch insert CVEs if they don't already exist in the database
+    ///
+    /// Returns the number of inserted records
+    pub fn batch_insert_cves(&self, values_list: Vec<models::NewCVE>) -> Result<usize> {
         use schema::cves::dsl::*;
 
         let mut conn = self.pool.get()?;
+        conn.transaction(|conn| {
+            let inserted_count = insert_into(cves)
+                .values(&values_list)
+                .on_conflict((cve, vendor, product))
+                .do_nothing()
+                .execute(conn)
+                .context("error creating cves in batch")?;
 
-        // check if we have it already by (vendor, product, cve)
-        let found: i64 = cves
-            .filter(
-                vendor
-                    .eq(&values.vendor)
-                    .and(product.eq(&values.product))
-                    .and(cve.eq(&values.cve)),
-            )
-            .count()
-            .get_result(&mut conn)
-            .context("error counting cves")?;
-
-        if found > 0 {
-            return Ok(false);
-        }
-
-        // create it as a new record
-        insert_into(cves)
-            .values(values)
-            .execute(&mut conn)
-            .context("error creating cve")?;
-
-        Ok(true)
+            Ok(inserted_count)
+        })
     }
 
     pub fn delete_cve(&self, the_vendor: &str, the_product: &str, the_cve: &str) -> Result<usize> {
@@ -245,6 +286,21 @@ impl PostgresRepository {
 
         Ok(matches)
     }
+}
+
+/// Create unique objects from the CVE list
+pub fn create_unique_objects(
+    cve_list: &[nist::cve::CVE],
+) -> Result<HashMap<String, models::NewObject>> {
+    Ok(cve_list
+        .iter()
+        .filter_map(|item| {
+            serde_json::to_string(item).ok().map(|json| {
+                let id = item.id().to_string();
+                (id.clone(), models::NewObject::with(id, json))
+            })
+        })
+        .collect())
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone)]

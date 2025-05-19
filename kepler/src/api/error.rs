@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use actix_web::{error::BlockingError, http::StatusCode, HttpResponse, HttpResponseBuilder};
+use actix_web::{HttpResponse, HttpResponseBuilder, error::BlockingError, http::StatusCode};
 
 #[derive(Debug)]
 pub enum ApplicationError {

@@ -1,8 +1,8 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
 use serde::{
-    de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{self, Visitor},
 };
 use version_compare::Cmp;
 
