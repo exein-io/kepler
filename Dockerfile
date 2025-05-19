@@ -12,12 +12,13 @@ FROM debian:bookworm
 
 RUN apt-get update && apt-get install -y libpq5 ca-certificates openssl
 
-COPY --from=builder \
-	/target/release/kepler \
-	/usr/local/bin/
+# Create app directory
+WORKDIR /app
 
-WORKDIR /root
+# Copy binary to PATH
+COPY --from=builder /target/release/kepler /usr/local/bin/
 
+# Copy migrations to the app directory
 ADD ./migrations ./migrations
 
-ENTRYPOINT ["/usr/local/bin/kepler", "--migrate"]
+ENTRYPOINT ["kepler", "--migrate"]
