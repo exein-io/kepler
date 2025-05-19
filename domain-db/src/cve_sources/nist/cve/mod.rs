@@ -167,7 +167,7 @@ pub struct CVSSV3 {
     pub base_severity: String,
 }
 
-/// [`ImpactMetricV2`] is used to represent the [`Impact`] metrics for [`CVE`]. records in [`CVSSV2`]. format.
+/// [`ImpactMetricV2`] is used to represent the [`Impact`] metrics for [`CVE`] records in [`CVSSV2`] format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImpactMetricV2 {
     #[serde(rename = "cvssV2")]
@@ -293,5 +293,35 @@ impl CVE {
             }
         }
         false
+    }
+}
+
+// cargo test -p domain-db --lib -- --nocapture
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use test_case::test_case;
+
+    const V2_V3_FIXTURE_1999: &str = include_str!("../../../db/fixtures/single_CVE-1999-0199.json");
+    const V2_V3_FIXTURE_2013: &str = include_str!("../../../db/fixtures/single_CVE-2013-0159.json");
+
+    #[test_case(V2_V3_FIXTURE_1999, 9.8, "CRITICAL", Some("NETWORK"))]
+    #[test_case(V2_V3_FIXTURE_2013, 7.1, "HIGH", Some("LOCAL"))]
+    fn test_extract_score_severity_vector(
+        fixture: &str,
+        expected_score: f64,
+        expected_severity: &str,
+        expected_vector: Option<&str>,
+    ) {
+        let cve: serde_json::error::Result<CVE> = serde_json::from_str(fixture);
+        let actual = cve.unwrap().extract_cve_score_severity_vector();
+
+        let expected = (
+            expected_score,
+            expected_severity.to_string(),
+            expected_vector.map(|s| s.to_string()),
+        );
+        assert_eq!(actual, expected);
     }
 }

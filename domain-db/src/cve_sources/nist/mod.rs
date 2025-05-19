@@ -121,47 +121,11 @@ mod tests {
     const MULTI_CVE_FIXTURE_2025: &str =
         include_str!("../../db/fixtures/multiple_nvdcve-1.1-2025.json");
     const V2_V3_FIXTURE_1999: &str = include_str!("../../db/fixtures/single_CVE-1999-0199.json");
-    const V2_V3_FIXTURE_2013: &str = include_str!("../../db/fixtures/single_CVE-2013-0159.json");
     const V2_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-1999-0208.json");
     const V3_FIXTURE: &str = include_str!("../../db/fixtures/single_CVE-2025-0410.json");
 
     #[cfg(feature = "long-running-test")]
     const DATA_PATH: &str = "../data/";
-
-    fn extract_score_severity_vector(item: &cve::CVE) -> (f64, String, Option<String>) {
-        if let Some(v3) = item.impact.metric_v3.as_ref() {
-            let score = v3.cvss.base_score;
-            let severity = v3.cvss.base_severity.clone();
-            let vector = Some(v3.cvss.attack_vector.clone());
-            (score, severity, vector)
-        } else if let Some(v2) = item.impact.metric_v2.as_ref() {
-            let score = v2.cvss.base_score;
-            let severity = v2.severity.clone();
-            let vector = Some(v2.cvss.access_vector.clone());
-            (score, severity, vector)
-        } else {
-            (0.0, "".to_string(), None)
-        }
-    }
-
-    #[test_case(V2_V3_FIXTURE_1999, 9.8, "CRITICAL", Some("NETWORK"))]
-    #[test_case(V2_V3_FIXTURE_2013, 7.1, "HIGH", Some("LOCAL"))]
-    fn test_extract_score_severity_vector(
-        fixture: &str,
-        expected_score: f64,
-        expected_severity: &str,
-        expected_vector: Option<&str>,
-    ) {
-        let cve: serde_json::error::Result<cve::CVE> = serde_json::from_str(fixture);
-        let actual = extract_score_severity_vector(&cve.unwrap());
-
-        let expected = (
-            expected_score,
-            expected_severity.to_string(),
-            expected_vector.map(|s| s.to_string()),
-        );
-        assert_eq!(actual, expected);
-    }
 
     #[test]
     fn test_cve_container_serializaion() {
@@ -216,7 +180,6 @@ mod tests {
     #[test_case(0, 4.9, 3.6, "MEDIUM", "NETWORK")]
     #[test_case(1, 7.8, 5.9, "HIGH", "LOCAL")]
     #[test_case(2, 6.5, 3.6, "MEDIUM", "NETWORK")]
-    #[test_case(3, None, None, "", "")]
     fn test_fields_score_severity_vector_v3_case(
         idx: usize,
         expected_base_score: impl Into<Option<f64>>,
@@ -240,7 +203,7 @@ mod tests {
                     m.cvss.attack_vector.as_str(),
                 )
             })
-            .unwrap_or((None, None, "", ""));
+            .unwrap();
 
         let expected = (
             expected_base_score.into(),

@@ -17,7 +17,7 @@ services:
     container_name: kepler
     image: kepler:dev
     volumes:
-      - ./data:/data
+      - ./data:/data:Z
     depends_on:
       - db
     environment:
@@ -30,7 +30,7 @@ services:
       - DB_USER=kepler
       - DB_PASSWORD=kepler
       - DB_DATABASE=kepler
-      - BATCH_SIZE=5000 
+      - KEPLER_BATCH_SIZE=5000 
     ports:
       - "8000:8000"
 

@@ -118,7 +118,7 @@ for year in $(seq 2025 2025); do
         -e DB_USER=kepler \
         -e DB_PASSWORD=kepler \
         -e DB_DATABASE=kepler \
-        -e BATCH_SIZE=5000 \
+        -e KEPLER_BATCH_SIZE=5000 \
         --network=kepler_default \
         kepler:dev import_nist $year -d /data --refresh
 done
@@ -129,15 +129,15 @@ done
 If you want to rebuild your dabase. You would do it in these steps:
 
 ```bash
-docker compose down -v # -v (bring down volumes)
+docker-compose down -v # -v (bring down volumes)
 ```
 
 ```bash
 docker compose build # optional (if you made some backend changes)
 ```
 
-```bash 
-docker compose up
+```bash
+docker-compose up
 ```
 
 Than re-trigger the [NIST data Import](#nist-data) step.

@@ -24,8 +24,8 @@ pub mod schema;
 /// We can set it to maximum of about 5500 for current [`domain_db::db::NewCVE`] parameteer count.
 ///
 /// DOCS: https://www.postgresql.org/docs/current/limits.html
-pub static BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env::var("BATCH_SIZE")
+pub static KEPLER_BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env::var("KEPLER_BATCH_SIZE")
         .ok()
         .and_then(|val| val.parse::<usize>().ok())
         .unwrap_or(5000)
@@ -80,7 +80,7 @@ impl PostgresRepository {
 
     /// Insert a list of objects into the database if they don't already exist.
     ///
-    /// Insertion is done in batches of size `BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
+    /// Insertion is done in batches of size `KEPLER_BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
     ///
     /// Returns a [`HashMap<String, i32>`] of CVE IDs to their assigned object IDs.
     pub fn insert_objects(
@@ -93,21 +93,19 @@ impl PostgresRepository {
             return Ok(inserted_object_ids);
         }
 
-        for chunk in objects_to_insert.chunks(*BATCH_SIZE) {
-            let inserted_ids: HashMap<String, i32> = self
-                .batch_insert_objects(chunk.to_vec())?
-                .into_iter()
-                .collect();
+        for chunk in objects_to_insert.chunks(*KEPLER_BATCH_SIZE) {
+            let inserted_ids: HashMap<String, i32> =
+                self.batch_insert_objects(chunk)?.into_iter().collect();
 
             inserted_object_ids.extend(inserted_ids);
         }
         Ok(inserted_object_ids)
     }
 
-    /// Inserts [`schema::objects`] into database in batches of size `BATCH_SIZE`
+    /// Inserts [`schema::objects`] into database in batches of size `KEPLER_BATCH_SIZE`
     pub fn batch_insert_objects(
         &self,
-        values_list: Vec<models::NewObject>,
+        values_list: &[models::NewObject],
     ) -> Result<Vec<(String, i32)>> {
         use schema::objects::dsl::*;
 
@@ -116,14 +114,16 @@ impl PostgresRepository {
         let mut conn = self.pool.get()?;
         conn.transaction(|conn| {
             let inserted_count = diesel::insert_into(objects)
-                .values(&values_list)
+                .values(values_list)
                 .on_conflict(cve)
                 .do_nothing()
                 .execute(conn)
                 .context("error creating objects in batch")?;
 
             if inserted_count > 0 {
-                log::info!("bach imported {} object records ...", inserted_count);
+                log::info!("batch imported {} object records ...", inserted_count);
+            } else {
+                log::warn!("Zero object records are inserted!");
             }
 
             let inserted_objects = objects
