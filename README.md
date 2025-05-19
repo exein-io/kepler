@@ -90,16 +90,8 @@ Kepler currently supports two data sources, [National Vulnerability Database](ht
 To import NIST records from all available years (2002 to 2025):
 
 ```bash
-for year in $(seq 2002 2025); do 
-    docker run --rm \
-        -v $(pwd)/data:/data:Z \
-        -e DB_HOST=db \
-        -e DB_PORT=5432 \
-        -e DB_USER=kepler \
-        -e DB_PASSWORD=kepler \
-        -e DB_DATABASE=kepler \
-        --network=kepler_default \
-        kepler:dev import_nist $year -d /data
+for year in $(seq 2002 2025); do
+  docker exec -it kepler kepler import_nist $year -d /data
 done
 ```
 
@@ -110,19 +102,16 @@ done
 Example - Refresh data for 2025
 
 ```bash
-for year in $(seq 2025 2025); do 
-    docker run --rm \
-        -v $(pwd)/data:/data:Z \
-        -e DB_HOST=db \
-        -e DB_PORT=5432 \
-        -e DB_USER=kepler \
-        -e DB_PASSWORD=kepler \
-        -e DB_DATABASE=kepler \
-        -e KEPLER_BATCH_SIZE=5000 \
-        --network=kepler_default \
-        kepler:dev import_nist $year -d /data --refresh
-done
+docker  exec -it kepler kepler import_nist 2025 -d /data --refresh
 ```
+
+Example - Custom batch size `-e KEPLER_BATCH_SIZE`
+
+```bash
+docker  exec -it -e KEPLER_BATCH_SIZE=4500 kepler kepler import_nist 2025 -d /data --refresh
+```
+
+> NOTE: Postgres supports 65535 params total so be aware when changing the default `KEPLER_BATCH_SIZE=5000` - [Postgres limits](https://www.postgresql.org/docs/current/limits.html)
 
 ### Database tear down
 
