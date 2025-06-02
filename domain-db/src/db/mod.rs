@@ -25,7 +25,7 @@ pub mod schema;
 ///
 /// DOCS: https://www.postgresql.org/docs/current/limits.html
 pub static KEPLER_BATCH_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env::var("KEPLER_BATCH_SIZE")
+    env::var("KEPLER__BATCH_SIZE")
         .ok()
         .and_then(|val| val.parse::<usize>().ok())
         .unwrap_or(5000)
@@ -80,7 +80,7 @@ impl PostgresRepository {
 
     /// Insert a list of objects into the database if they don't already exist.
     ///
-    /// Insertion is done in batches of size `KEPLER_BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
+    /// Insertion is done in batches of size `KEPLER__BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
     ///
     /// Returns a [`HashMap<String, i32>`] of CVE IDs to their assigned object IDs.
     pub fn insert_objects(
@@ -102,7 +102,7 @@ impl PostgresRepository {
         Ok(inserted_object_ids)
     }
 
-    /// Inserts [`schema::objects`] into database in batches of size `KEPLER_BATCH_SIZE`
+    /// Inserts [`schema::objects`] into database in batches of size `KEPLER__BATCH_SIZE`
     pub fn batch_insert_objects(
         &self,
         values_list: &[models::NewObject],
