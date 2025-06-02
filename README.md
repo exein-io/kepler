@@ -102,16 +102,16 @@ done
 Example - Refresh data for 2025
 
 ```bash
-docker  exec -it kepler kepler import_nist 2025 -d /data --refresh
+docker exec -it kepler kepler import_nist 2025 -d /data --refresh
 ```
 
-Example - Custom batch size `-e KEPLER_BATCH_SIZE`
+Example - Custom batch size `-e KEPLER__BATCH_SIZE`
 
 ```bash
-docker  exec -it -e KEPLER_BATCH_SIZE=4500 kepler kepler import_nist 2025 -d /data --refresh
+docker exec -it -e KEPLER__BATCH_SIZE=4500 kepler kepler import_nist 2025 -d /data --refresh
 ```
 
-> NOTE: Postgres supports 65535 params total so be aware when changing the default `KEPLER_BATCH_SIZE=5000` - [Postgres limits](https://www.postgresql.org/docs/current/limits.html)
+> NOTE: Postgres supports 65535 params total so be aware when changing the default `KEPLER__BATCH_SIZE=5000` - [Postgres limits](https://www.postgresql.org/docs/current/limits.html)
 
 ### Database tear down
 
