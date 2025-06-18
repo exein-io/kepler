@@ -138,7 +138,7 @@ pub fn import_nist(
     cve_list: Vec<nist::cve::CVE>,
 ) -> Result<usize> {
     log::info!("connected to database, importing records ...");
-    log::info!("configured 'KEPLER_BATCH_SIZE' {}", &*KEPLER_BATCH_SIZE);
+    log::info!("configured 'KEPLER__BATCH_SIZE' {}", &*KEPLER_BATCH_SIZE);
     log::info!("{} CVEs pending import", cve_list.len());
 
     let mut num_imported = 0;
