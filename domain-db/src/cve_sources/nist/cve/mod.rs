@@ -1,69 +1,118 @@
-use std::collections::HashSet;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 pub mod node;
 
-/// Meta contains metadata about the [`CVE`]., such as its ID and assigner.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Meta {
-    #[serde(rename = "ID")]
-    pub id: String,
-    #[serde(rename = "ASSIGNER")]
-    pub assigner: Option<String>,
+// -------------------- CVSS --------------------
+// Types for NVD 2.0 metrics (v2, v3.1, v4.0).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Metrics {
+    #[serde(default, rename = "cvssMetricV2")]
+    pub v2: Vec<CvssV2Metric>,
+    #[serde(default, rename = "cvssMetricV31")]
+    pub v31: Vec<CvssV31Metric>,
+    #[serde(default, rename = "cvssMetricV40")]
+    pub v40: Vec<CvssV40Metric>,
 }
 
-/// Reference represents a reference to additional information about the [`CVE`], such as a URL and tags.
+/// CVSS v4.0 in NVD 2.0 lives under: `metrics.cvssMetricV40[*]`
+///
+/// Example (NVD 2.0):
+/// ```json
+/// "metrics": {
+///   "cvssMetricV40": [{
+///     "source": "nvd@nist.gov",
+///     "type": "Primary",
+///     "cvssData": {
+///       "version": "4.0",
+///       "vectorString": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+///       "baseScore": 9.8,
+///       "baseSeverity": "CRITICAL",
+///       "attackVector": "NETWORK",
+///     },
+///     "exploitabilityScore": 3.9,
+///     "impactScore": 5.9
+///   }]
+/// }
+/// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Reference {
-    pub url: String,
-    pub name: String,
-    pub tags: Vec<String>,
-}
-
-/// References contains a list of [`Reference`]s for a [`CVE`].
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct References {
-    pub reference_data: Vec<Reference>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DescriptionData {
-    pub lang: String,
-    pub value: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Description {
-    pub description_data: Vec<DescriptionData>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Info {
-    #[serde(rename = "CVE_data_meta")]
-    pub meta: Meta,
-    pub references: References,
-    pub description: Description,
-    #[serde(rename = "problemtype")]
-    pub problem_type: ProblemType,
-}
-
-/// ProblemType represents the type of problem associated with a [`CVE`]., including descriptions in various languages.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProblemType {
-    #[serde(rename = "problemtype_data")]
-    problem_type_data: Vec<ProblemTypeDataItem>,
+#[serde(rename_all = "camelCase")]
+pub struct CvssV40Metric {
+    #[serde(rename = "cvssData")]
+    pub data: CvssV40Data,
+    pub exploitability_score: Option<f32>,
+    pub impact_score: Option<f32>,
+    pub source: Option<String>,
+    #[serde(rename = "type")]
+    pub metric_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProblemTypeDataItem {
-    pub description: Vec<ProblemTypeDescription>,
+#[serde(rename_all = "camelCase")]
+pub struct CvssV40Data {
+    pub version: String,
+    pub vector_string: String,
+    pub base_score: f64,
+    pub base_severity: Option<String>,
+    pub attack_vector: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProblemTypeDescription {
-    pub lang: String,
-    pub value: String,
+/// CvssMetricV3 object is optional.
+/// CVSSv3.0 was released in 2016, thus most [`CVE`] published before 2016 do not include the [`CVSSV3`] object.
+/// The exception are [`CVE`] published before 2016 that were later reanalyzed or modified.
+///
+/// Example (NVD 2.0):
+/// ```json
+/// "metrics": {
+///   "cvssMetricV31": [{
+///     "source": "nvd@nist.gov",
+///     "type": "Primary",
+///     "cvssData": {
+///       "version": "3.1",
+///       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+///       "attackVector": "LOCAL",
+///       "attackComplexity": "LOW",
+///       "privilegesRequired": "LOW",
+///       "userInteraction": "NONE",
+///       "scope": "UNCHANGED",
+///       "confidentialityImpact": "NONE",
+///       "integrityImpact": "HIGH",
+///       "availabilityImpact": "HIGH",
+///       "baseScore": 7.1,
+///       "baseSeverity": "HIGH"
+///     },
+///     "exploitabilityScore": 1.8,
+///     "impactScore": 5.2
+///   }]
+/// }
+/// ```
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CvssV31Metric {
+    #[serde(rename = "cvssData")]
+    pub data: CvssV31Data,
+    pub exploitability_score: Option<f32>,
+    pub impact_score: Option<f32>,
+    pub source: Option<String>,
+    #[serde(rename = "type")]
+    pub metric_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CvssV31Data {
+    pub version: String,
+    pub vector_string: String,
+    pub base_score: f64,
+    pub base_severity: String,
+    pub attack_vector: Option<String>,
+    pub attack_complexity: Option<String>,
+    pub privileges_required: Option<String>,
+    pub user_interaction: Option<String>,
+    pub scope: Option<String>,
+    pub confidentiality_impact: Option<String>,
+    pub integrity_impact: Option<String>,
+    pub availability_impact: Option<String>,
 }
 
 /// CvssMetricV2 object is optional.
@@ -95,233 +144,352 @@ pub struct ProblemTypeDescription {
 ///   }
 /// }
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CVSSV2 {
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CvssV2Metric {
+    #[serde(rename = "cvssData")]
+    pub data: CvssV2Data,
+    pub base_severity: Option<String>,
+    pub exploitability_score: Option<f32>,
+    pub impact_score: Option<f32>,
+    pub source: Option<String>,
+    #[serde(rename = "type")]
+    pub metric_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CvssV2Data {
     pub version: String,
-    #[serde(rename = "vectorString")]
     pub vector_string: String,
-    #[serde(rename = "accessVector")]
-    pub access_vector: String,
-    #[serde(rename = "accessComplexity")]
-    pub access_complexity: String,
-    pub authentication: String,
-    #[serde(rename = "confidentialityImpact")]
-    pub confidentiality_impact: String,
-    #[serde(rename = "integrityImpact")]
-    pub integrity_impact: String,
-    #[serde(rename = "availabilityImpact")]
-    pub availability_impact: String,
-    #[serde(rename = "baseScore")]
     pub base_score: f64,
+    pub access_vector: Option<String>,
+    pub access_complexity: Option<String>,
+    pub authentication: Option<String>,
+    pub confidentiality_impact: Option<String>,
+    pub integrity_impact: Option<String>,
+    pub availability_impact: Option<String>,
 }
 
-/// CvssMetricV3 object is optional.
-/// CVSSv3.0 was released in 2016, thus most [`CVE`] published before 2016 do not include the [`CVSSV3`] object.
-/// The exception are [`CVE`] published before 2016 that were later reanalyzed or modified.
-///
-/// Example json
-/// ```json
-/// {
-///   "baseMetricV3": {
-///     "cvssV3": {
-///       "version": "3.0",
-///       "vectorString": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
-///       "attackVector": "LOCAL",
-///       "attackComplexity": "LOW",
-///       "privilegesRequired": "LOW",
-///       "userInteraction": "NONE",
-///       "scope": "UNCHANGED",
-///       "confidentialityImpact": "NONE",
-///       "integrityImpact": "HIGH",
-///       "availabilityImpact": "HIGH",
-///       "baseScore": 7.1,
-///       "baseSeverity": "HIGH"
-///     },
-///     "exploitabilityScore": 1.8,
-///     "impactScore": 5.2
-///   },
-/// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CVSSV3 {
-    pub version: String,
-    #[serde(rename = "vectorString")]
-    pub vector_string: String,
-    #[serde(rename = "attackVector")]
-    pub attack_vector: String,
-    #[serde(rename = "attackComplexity")]
-    pub attack_complexity: String,
-    #[serde(rename = "privilegesRequired")]
-    pub privileges_required: String,
-    #[serde(rename = "userInteraction")]
-    pub user_interaction: String,
-    pub scope: String,
-    #[serde(rename = "confidentialityImpact")]
-    pub confidentiality_impact: String,
-    #[serde(rename = "integrityImpact")]
-    pub integrity_impact: String,
-    #[serde(rename = "availabilityImpact")]
-    pub availability_impact: String,
-    #[serde(rename = "baseScore")]
-    pub base_score: f64,
-    #[serde(rename = "baseSeverity")]
-    pub base_severity: String,
+const NVD_SOURCE: &str = "nvd@nist.gov";
+
+impl CvssV40Metric {
+    #[inline]
+    fn is_primary_nvd(&self) -> bool {
+        self.metric_type.as_deref() == Some("Primary") && self.source.as_deref() == Some(NVD_SOURCE)
+    }
+}
+impl CvssV31Metric {
+    #[inline]
+    fn is_primary_nvd(&self) -> bool {
+        self.metric_type.as_deref() == Some("Primary") && self.source.as_deref() == Some(NVD_SOURCE)
+    }
 }
 
-/// [`ImpactMetricV2`] is used to represent the [`Impact`] metrics for [`CVE`] records in [`CVSSV2`] format.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImpactMetricV2 {
-    #[serde(rename = "cvssV2")]
-    pub cvss: CVSSV2,
-    #[serde(rename = "exploitabilityScore")]
-    pub exploitability_score: f32,
-    #[serde(rename = "impactScore")]
-    pub impact_score: f32,
-    pub severity: String,
-    #[serde(rename = "acInsufInfo")]
-    pub ac_insuf_info: Option<bool>,
-    #[serde(rename = "obtainAllPrivilege")]
-    pub obtain_all_privilege: bool,
-    #[serde(rename = "obtainUserPrivilege")]
-    pub obtain_user_privilege: bool,
-    #[serde(rename = "obtainOtherPrivilege")]
-    pub obtain_other_privilege: bool,
-    #[serde(rename = "userInteractionRequired")]
-    pub user_interaction_required: Option<bool>,
+impl Metrics {
+    #[inline]
+    pub fn preferred_v40(&self) -> Option<&CvssV40Metric> {
+        self.v40
+            .iter()
+            .find(|m| m.is_primary_nvd())
+            .or_else(|| self.v40.first())
+    }
+    #[inline]
+    pub fn preferred_v31(&self) -> Option<&CvssV31Metric> {
+        self.v31
+            .iter()
+            .find(|m| m.is_primary_nvd())
+            .or_else(|| self.v31.first())
+    }
+    #[inline]
+    pub fn first_v2(&self) -> Option<&CvssV2Metric> {
+        self.v2.first()
+    }
 }
 
-/// [`ImpactMetricV3`] is used to represent the [`Impact`] metrics for [`CVE`] records in [`CVSSV3`] format.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImpactMetricV3 {
-    #[serde(rename = "cvssV3")]
-    pub cvss: CVSSV3,
-    #[serde(rename = "exploitabilityScore")]
-    pub exploitability_score: f32,
-    #[serde(rename = "impactScore")]
-    pub impact_score: f32,
+/* ------------------------------ Other fields ------------------------------ */
+// Other NVD 2.0 types: tags, descriptions, weaknesses, references, configurations.
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CveTag {
+    #[serde(rename = "sourceIdentifier")]
+    pub source_identifier: String,
+    pub tags: Vec<String>,
 }
 
-/// [`Impact`] is used to represent the impact of a [`CVE`] record, which can include both [`ImpactMetricV2`] and [`ImpactMetricV3`] metrics.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Impact {
-    #[serde(rename = "baseMetricV2")]
-    pub metric_v2: Option<ImpactMetricV2>,
-    #[serde(rename = "baseMetricV3")]
-    pub metric_v3: Option<ImpactMetricV3>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Description {
+    pub lang: String,
+    pub value: String,
 }
 
-/// [`Configurations`] holds the nodes that describe the affected products and versions for a [`CVE`].
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Weakness {
+    pub source: String,
+    #[serde(rename = "type")]
+    pub weakness_type: String,
+    pub description: Vec<Description>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Reference {
+    pub url: String,
+    pub source: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Configurations {
-    #[serde(rename = "CVE_data_version")]
-    pub data_version: String,
+pub struct Configuration {
+    #[serde(default)]
     pub nodes: Vec<node::Node>,
 }
 
-/// Common Vulnerabilities and Exposures [`CVE`] record from the NIST database.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[allow(clippy::upper_case_acronyms)]
+// -------------------- CVE --------------------
+// Core NVD 2.0 CVE model + helpers (summary, matching, CVSS extraction).
+
+/// Common Vulnerabilities and Exposures [`CVE`] record from the NIST database (NVD 2.0).
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CVE {
-    pub cve: Info,
-    pub impact: Impact,
-    pub configurations: Configurations,
-    #[serde(rename = "publishedDate")]
-    pub published_date: String,
-    #[serde(rename = "lastModifiedDate")]
-    pub last_modified_date: String,
+    pub id: String,
+    #[serde(rename = "sourceIdentifier")]
+    pub source_identifier: Option<String>,
+    pub published: String,
+    #[serde(rename = "lastModified")]
+    pub last_modified: String,
+    #[serde(rename = "vulnStatus")]
+    pub vuln_status: Option<String>,
+    #[serde(rename = "cveTags")]
+    pub cve_tags: Option<Vec<CveTag>>,
+    #[serde(default)]
+    pub descriptions: Vec<Description>,
+    pub metrics: Option<Metrics>,
+    pub weaknesses: Option<Vec<Weakness>>,
+    pub configurations: Option<Vec<Configuration>>,
+    #[serde(default)]
+    pub references: Vec<Reference>,
 }
 
 impl CVE {
-    pub fn is_complete(&self) -> bool {
-        !self.configurations.nodes.is_empty()
-    }
-
     pub fn id(&self) -> &str {
-        &self.cve.meta.id
+        &self.id
     }
 
     pub fn summary(&self) -> Option<&str> {
-        for desc in &self.cve.description.description_data {
-            if desc.lang == "en" {
-                return Some(&desc.value);
-            }
-        }
-        None
+        self.descriptions
+            .iter()
+            .find(|d| d.lang == "en")
+            .map(|d| d.value.as_str())
     }
 
     pub fn problems(&self) -> Vec<&str> {
-        self.cve
-            .problem_type
-            .problem_type_data
-            .iter()
-            .flat_map(|item| {
-                item.description
-                    .iter()
-                    .map(|description_item| description_item.value.as_str())
+        self.weaknesses
+            .as_ref()
+            .map(|w| {
+                w.iter()
+                    .flat_map(|weakness| {
+                        weakness
+                            .description
+                            .iter()
+                            .filter(|d| d.lang == "en")
+                            .map(|d| d.value.as_str())
+                    })
+                    .collect()
             })
-            .collect()
+            .unwrap_or_default()
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.configurations
+            .as_ref()
+            .map(|configs| configs.iter().any(|c| !c.nodes.is_empty()))
+            .unwrap_or(false)
     }
 
     pub fn collect_unique_products(&self) -> HashSet<cpe::Product> {
         self.configurations
-            .nodes
-            .iter()
-            .flat_map(|node| node.collect_unique_products())
-            .collect()
-    }
-
-    pub fn extract_cve_score_severity_vector(&self) -> (f64, String, Option<String>) {
-        if let Some(v3) = self.impact.metric_v3.as_ref() {
-            let score = v3.cvss.base_score;
-            let severity = v3.cvss.base_severity.clone();
-            let vector = Some(v3.cvss.attack_vector.clone());
-            (score, severity, vector)
-        } else if let Some(v2) = self.impact.metric_v2.as_ref() {
-            let score = v2.cvss.base_score;
-            let severity = v2.severity.clone();
-            let vector = Some(v2.cvss.access_vector.clone());
-            (score, severity, vector)
-        } else {
-            (0.0, "".to_string(), None)
-        }
+            .as_ref()
+            .map(|configs| {
+                configs
+                    .iter()
+                    .flat_map(|cfg| cfg.nodes.iter())
+                    .flat_map(|n| n.collect_unique_products())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn is_match(&mut self, product: &str, version: &str) -> bool {
-        for root in &mut self.configurations.nodes {
-            // roots are implicitly in OR
-            if root.is_match(product, version) {
-                return true;
+        if let Some(configs) = &mut self.configurations {
+            for cfg in configs {
+                for node in &mut cfg.nodes {
+                    if node.is_match(product, version) {
+                        return true;
+                    }
+                }
             }
         }
         false
     }
+
+    /// Select the best CVSS metric and return a normalized view.
+    ///
+    /// v4.0 Primary@NVD -> first v4.0 -> v3.1 Primary@NVD -> first v3.1 -> first v2.
+    pub fn best_cvss_norm(&self) -> Option<CvssNorm> {
+        let metrics = self.metrics.as_ref()?;
+        if let Some(m) = metrics.preferred_v40() {
+            return Some(CvssNorm::from_v40(m));
+        }
+        if let Some(m) = metrics.preferred_v31() {
+            return Some(CvssNorm::from_v31(m));
+        }
+        metrics.first_v2().map(CvssNorm::from_v2)
+    }
+
+    /// Wrapper over `best_cvss_norm()`.
+    /// Returns `(base_score, base_severity, attack_vector)`.
+    pub fn extract_cve_score_severity_vector(&self) -> (f64, String, Option<String>) {
+        self.best_cvss_norm()
+            .map(|n| (n.base_score, n.base_severity, n.attack_vector))
+            .unwrap_or((0.0, "NONE".to_string(), None))
+    }
 }
 
-// cargo test -p domain-db --lib -- --nocapture
+// -------------------- Normalizer --------------------
+// Uniform CVSS view across versions (v2/v3.1/v4.0) for downstream use.
+pub struct CvssNorm {
+    pub base_score: f64,
+    pub base_severity: String,
+    pub vector: String,
+    pub attack_vector: Option<String>,
+    pub impact_score: Option<f32>,
+}
+
+impl CvssNorm {
+    pub fn from_v2(m: &CvssV2Metric) -> Self {
+        let sev = m
+            .base_severity
+            .clone()
+            .unwrap_or_else(|| map_score_to_severity(m.data.base_score));
+
+        CvssNorm {
+            base_score: m.data.base_score,
+            base_severity: sev,
+            vector: m.data.vector_string.clone(),
+            attack_vector: m.data.access_vector.clone(),
+            impact_score: m.impact_score,
+        }
+    }
+
+    pub fn from_v31(m: &CvssV31Metric) -> Self {
+        CvssNorm {
+            base_score: m.data.base_score,
+            base_severity: m.data.base_severity.clone(),
+            vector: m.data.vector_string.clone(),
+            attack_vector: m.data.attack_vector.clone(),
+            impact_score: m.impact_score,
+        }
+    }
+
+    pub fn from_v40(m: &CvssV40Metric) -> Self {
+        CvssNorm {
+            base_score: m.data.base_score,
+            base_severity: m
+                .data
+                .base_severity
+                .clone()
+                .unwrap_or_else(|| map_score_to_severity(m.data.base_score)),
+            vector: m.data.vector_string.clone(),
+            attack_vector: m.data.attack_vector.clone(),
+            impact_score: m.impact_score,
+        }
+    }
+}
+
+// -------------------- Utilities --------------------
+// Small helpers and score→severity mapping.
+
+fn map_score_to_severity(score: f64) -> String {
+    if score == 0.0 {
+        "NONE".to_string()
+    } else if score < 4.0 {
+        "LOW".to_string()
+    } else if score < 7.0 {
+        "MEDIUM".to_string()
+    } else if score < 9.0 {
+        "HIGH".to_string()
+    } else {
+        "CRITICAL".to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use test_case::test_case;
 
-    const V2_V3_FIXTURE_1999: &str = include_str!("../../../db/fixtures/single_CVE-1999-0199.json");
-    const V2_V3_FIXTURE_2013: &str = include_str!("../../../db/fixtures/single_CVE-2013-0159.json");
+    #[test]
+    fn test_is_complete_with_empty_configurations() {
+        let cve_json = r#"{
+            "id": "CVE-2025-0001",
+            "published": "2025-01-01T00:00:00.000",
+            "lastModified": "2025-01-01T00:00:00.000",
+            "descriptions": [],
+            "references": [],
+            "configurations": []
+        }"#;
+        let cve: CVE = serde_json::from_str(cve_json).unwrap();
+        assert!(!cve.is_complete());
+    }
 
-    #[test_case(V2_V3_FIXTURE_1999, 9.8, "CRITICAL", Some("NETWORK"))]
-    #[test_case(V2_V3_FIXTURE_2013, 7.1, "HIGH", Some("LOCAL"))]
-    fn test_extract_score_severity_vector(
-        fixture: &str,
-        expected_score: f64,
-        expected_severity: &str,
-        expected_vector: Option<&str>,
-    ) {
-        let cve: serde_json::error::Result<CVE> = serde_json::from_str(fixture);
-        let actual = cve.unwrap().extract_cve_score_severity_vector();
+    #[test]
+    fn test_is_complete_with_non_empty_nodes() {
+        let cve_json = r#"{
+            "id": "CVE-2025-0001",
+            "published": "2025-01-01T00:00:00.000",
+            "lastModified": "2025-01-01T00:00:00.000",
+            "descriptions": [],
+            "references": [],
+            "configurations": [{
+                "nodes": [{
+                    "operator": "OR",
+                    "negate": false,
+                    "cpeMatch": []
+                }]
+            }]
+        }"#;
+        let cve: CVE = serde_json::from_str(cve_json).unwrap();
+        assert!(cve.is_complete());
+    }
 
-        let expected = (
-            expected_score,
-            expected_severity.to_string(),
-            expected_vector.map(|s| s.to_string()),
-        );
-        assert_eq!(actual, expected);
+    #[test]
+    fn test_extract_v40_primary() {
+        let cve_json = r#"{
+        "id": "CVE-2025-9999",
+        "published": "2025-01-01T00:00:00.000",
+        "lastModified": "2025-01-02T00:00:00.000",
+        "descriptions": [],
+        "references": [],
+        "metrics": {
+            "cvssMetricV40": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+                "version": "4.0",
+                "vectorString": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL",
+                "attackVector": "NETWORK"
+            },
+            "exploitabilityScore": 3.9,
+            "impactScore": 5.9
+            }]
+        }
+        }"#;
+        let cve: CVE = serde_json::from_str(cve_json).unwrap();
+        let (score, sev, av) = cve.extract_cve_score_severity_vector();
+        assert_eq!(score, 9.8);
+        assert_eq!(sev, "CRITICAL");
+        assert_eq!(av.as_deref(), Some("NETWORK"));
     }
 }

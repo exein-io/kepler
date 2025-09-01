@@ -31,7 +31,7 @@ impl FromStr for CpeType {
             'h' => Ok(Self::Hardware),
             'o' => Ok(Self::OperatingSystem),
             'a' => Ok(Self::Application),
-            _ => Err(format!("could not convert '{}' to cpe type", c)),
+            _ => Err(format!("could not convert '{c}' to cpe type")),
         }
     }
 }

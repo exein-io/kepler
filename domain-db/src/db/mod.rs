@@ -47,9 +47,7 @@ impl PostgresRepository {
     pub fn new(database_url: &str, migrations_directory: &str) -> Result<Self> {
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         let pool = r2d2::Pool::new(manager)?;
-
         let migrations = FileBasedMigrations::from_path(migrations_directory)?;
-
         Ok(Self { pool, migrations })
     }
 }
@@ -62,7 +60,6 @@ impl PostgresRepository {
 
     pub fn any_pending_migrations(&self) -> Result<bool> {
         let mut conn = self.pool.get()?;
-
         conn.has_pending_migration(self.migrations.clone())
             .map_err(|e| anyhow!(e))
             .context("failed checking pending migrations")
@@ -70,25 +67,18 @@ impl PostgresRepository {
 
     pub fn run_pending_migrations(&self) -> Result<()> {
         let mut conn = self.pool.get()?;
-
         conn.run_pending_migrations(self.migrations.clone())
             .map_err(|e| anyhow!(e))
             .context("failed running pending migrations")?;
-
         Ok(())
     }
 
-    /// Insert a list of objects into the database if they don't already exist.
-    ///
-    /// Insertion is done in batches of size `KEPLER__BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
-    ///
-    /// Returns a [`HashMap<String, i32>`] of CVE IDs to their assigned object IDs.
+    /// Insert objects (dedup by `cve` via ON CONFLICT DO NOTHING) in batches.
     pub fn insert_objects(
         &self,
         objects_to_insert: Vec<models::NewObject>,
     ) -> Result<HashMap<String, i32>> {
         let mut inserted_object_ids = HashMap::new();
-
         if objects_to_insert.is_empty() {
             return Ok(inserted_object_ids);
         }
@@ -96,19 +86,17 @@ impl PostgresRepository {
         for chunk in objects_to_insert.chunks(*KEPLER_BATCH_SIZE) {
             let inserted_ids: HashMap<String, i32> =
                 self.batch_insert_objects(chunk)?.into_iter().collect();
-
             inserted_object_ids.extend(inserted_ids);
         }
         Ok(inserted_object_ids)
     }
 
-    /// Inserts [`schema::objects`] into database in batches of size `KEPLER__BATCH_SIZE`
+    /// Inserts [`schema::objects`] in batches of size `KEPLER__BATCH_SIZE`.
     pub fn batch_insert_objects(
         &self,
         values_list: &[models::NewObject],
     ) -> Result<Vec<(String, i32)>> {
         use schema::objects::dsl::*;
-
         let object_cves: Vec<String> = values_list.iter().map(|obj| obj.cve.clone()).collect();
 
         let mut conn = self.pool.get()?;
@@ -126,10 +114,10 @@ impl PostgresRepository {
                 log::warn!("Zero object records are inserted!");
             }
 
+            // Query back to get IDs (idempotent whether inserted-or-existing).
             let inserted_objects = objects
                 .filter(cve.eq_any(&object_cves))
                 .select((cve, id))
-                // Query back the inserted records to get their assigned IDs
                 .load(conn)
                 .context("error retrieving inserted object IDs")?;
 
@@ -137,12 +125,9 @@ impl PostgresRepository {
         })
     }
 
-    /// Batch insert CVEs if they don't already exist in the database
-    ///
-    /// Returns the number of inserted records
+    /// Batch insert CVEs (dedup by `(cve,vendor,product)`).
     pub fn batch_insert_cves(&self, values_list: Vec<models::NewCVE>) -> Result<usize> {
         use schema::cves::dsl::*;
-
         let mut conn = self.pool.get()?;
         conn.transaction(|conn| {
             let inserted_count = insert_into(cves)
@@ -151,16 +136,13 @@ impl PostgresRepository {
                 .do_nothing()
                 .execute(conn)
                 .context("error creating cves in batch")?;
-
             Ok(inserted_count)
         })
     }
 
     pub fn delete_cve(&self, the_vendor: &str, the_product: &str, the_cve: &str) -> Result<usize> {
         use schema::cves::dsl::*;
-
         let mut conn = self.pool.get()?;
-
         diesel::delete(
             cves.filter(
                 vendor
@@ -175,7 +157,6 @@ impl PostgresRepository {
 
     pub fn get_products(&self) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
-
         let mut conn = self.pool.get()?;
 
         let prods: Vec<(String, String)> = cves
@@ -197,13 +178,12 @@ impl PostgresRepository {
 
     pub fn search_products(&self, query: &str) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
-
         let mut conn = self.pool.get()?;
 
         let prods: Vec<(String, String)> = cves
             .select((vendor, product))
             .distinct()
-            .filter(product.like(format!("%{}%", query)))
+            .filter(product.like(format!("%{query}%")))
             .get_results::<(String, String)>(&mut conn)
             .context("error searching products")?;
 
@@ -223,13 +203,18 @@ impl PostgresRepository {
 
         // validate version string
         if version_compare::compare_to(&query.version, "1.0.0", Cmp::Ne).is_err() {
-            bail!("invalid version string");
+            bail!("invalid version string: {}", query.version.clone());
         }
 
         let mut conn = self.pool.get()?;
 
-        // fetch potential candidates for this query
+        // Fetch candidate rows
         let start = Instant::now();
+        log::debug!(
+            "query candidates by vendor={:?}, product='{}'",
+            query.vendor,
+            query.product
+        );
         let candidates = fetch_candidates(&mut conn, query.vendor.as_ref(), &query.product)?;
         log::info!(
             "found {} candidates in {} ms",
@@ -237,18 +222,15 @@ impl PostgresRepository {
             start.elapsed().as_millis()
         );
 
-        // deserialize all objects belonging to the potential CVEs
+        // Deserialize stored JSON payloads into source-specific structs
         let start = Instant::now();
         let sources = candidates
             .into_iter()
             .map(|(cve, obj)| match cve.source.as_str() {
-                nist::SOURCE_NAME => {
-                    if let Ok(cve_des) = serde_json::from_str(&obj.data) {
-                        Ok((cve, Source::Nist(cve_des)))
-                    } else {
-                        Err(anyhow!("could not deserialize {}", obj.cve))
-                    }
-                }
+                nist::SOURCE_NAME => match serde_json::from_str::<nist::cve::CVE>(&obj.data) {
+                    Ok(parsed) => Ok((cve, Source::Nist(parsed))),
+                    Err(_) => Err(anyhow!("could not deserialize {}", obj.cve)),
+                },
                 _ => Err(anyhow!("unsupported data source {}", cve.source)),
             })
             .collect::<Result<Vec<_>, anyhow::Error>>()?;
@@ -258,26 +240,25 @@ impl PostgresRepository {
             start.elapsed().as_millis()
         );
 
-        // Find match
+        // Matching
         let matches = sources
             .into_iter()
-            .filter_map(|(cve, mut source)| {
+            .filter_map(|(cve_row, mut source)| {
                 if source.is_match(&query.product, &query.version) {
                     let product = models::Product {
-                        vendor: cve.vendor,
-                        product: cve.product,
+                        vendor: cve_row.vendor,
+                        product: cve_row.product,
                     };
-
-                    let matched_cve = match source {
+                    let matched_cve: MatchedCVE = match source {
                         Source::Nist(nist_cve) => (product, nist_cve).into(),
                     };
-
                     Some(matched_cve)
                 } else {
                     None
                 }
             })
             .collect::<Vec<_>>();
+
         log::info!(
             "found {} matches in {} ms",
             matches.len(),
@@ -288,7 +269,7 @@ impl PostgresRepository {
     }
 }
 
-/// Create unique objects from the CVE list
+/// Build unique objects from CVEs; value is the serialized full NVD 2.0 CVE for later re-hydration.
 pub fn create_unique_objects(
     cve_list: &[nist::cve::CVE],
 ) -> Result<HashMap<String, models::NewObject>> {
@@ -335,7 +316,6 @@ fn fetch_candidates(
 #[derive(Debug, Deserialize)]
 pub enum Source {
     Nist(nist::cve::CVE),
-    // Placeholder different types
 }
 
 impl Source {
@@ -346,6 +326,7 @@ impl Source {
     }
 }
 
+/// Public response for matched CVEs
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchedCVE {
     pub cve: String, // ID
@@ -355,9 +336,9 @@ pub struct MatchedCVE {
     pub summary: Option<String>,
     pub references: Vec<Reference>,
     pub problems: Vec<String>,
-    #[serde(rename = "publishedDate")] // TODO: remove after response type implementation
+    #[serde(rename = "publishedDate")]
     pub published_date: String,
-    #[serde(rename = "lastModifiedDate")] // TODO: remove after response type implementation
+    #[serde(rename = "lastModifiedDate")]
     pub last_modified_date: String,
     pub cvss: CVSS,
 }
@@ -365,15 +346,45 @@ pub struct MatchedCVE {
 impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
     fn from((product, nist_cve): (models::Product, nist::cve::CVE)) -> Self {
         let references = nist_cve
-            .cve
             .references
-            .reference_data
             .iter()
-            .map(|reference| Reference {
-                url: reference.url.clone(),
-                tags: reference.tags.clone(),
+            .map(|r| Reference {
+                url: r.url.clone(),
+                tags: r.tags.clone(),
             })
-            .collect();
+            .collect::<Vec<_>>();
+
+        // NVD 2.0: metrics under cve.metrics.*, arrays; prefer v4.0 "Primary" from NVD, then v3.1, then v2
+        let (cvss_v4, cvss_v3, cvss_v2) = if let Some(metrics) = &nist_cve.metrics {
+            let v4 = metrics.preferred_v40().map(|m| CVSSVData {
+                vector_string: m.data.vector_string.clone(),
+                base_score: m.data.base_score,
+                impact_score: m.impact_score.unwrap_or_default(),
+                severity: m
+                    .data
+                    .base_severity
+                    .clone()
+                    .unwrap_or_else(|| cvss_score_to_severity(m.data.base_score)),
+            });
+
+            let v3 = metrics.preferred_v31().map(|m| CVSSVData {
+                vector_string: m.data.vector_string.clone(),
+                base_score: m.data.base_score,
+                impact_score: m.impact_score.unwrap_or_default(),
+                severity: m.data.base_severity.clone(),
+            });
+
+            let v2 = metrics.first_v2().map(|m| CVSSVData {
+                vector_string: m.data.vector_string.clone(),
+                base_score: m.data.base_score,
+                impact_score: m.impact_score.unwrap_or_default(),
+                severity: cvss_score_to_severity(m.data.base_score),
+            });
+
+            (v4, v3, v2)
+        } else {
+            (None, None, None)
+        };
 
         let models::Product { vendor, product } = product;
 
@@ -389,21 +400,12 @@ impl From<(models::Product, nist::cve::CVE)> for MatchedCVE {
                 .into_iter()
                 .map(str::to_string)
                 .collect(),
-            published_date: nist_cve.published_date,
-            last_modified_date: nist_cve.last_modified_date,
+            published_date: nist_cve.published.clone(),
+            last_modified_date: nist_cve.last_modified.clone(),
             cvss: CVSS {
-                v3: nist_cve.impact.metric_v3.map(|metric| CVSSVData {
-                    vector_string: metric.cvss.vector_string,
-                    base_score: metric.cvss.base_score,
-                    impact_score: metric.impact_score,
-                    severity: metric.cvss.base_severity,
-                }),
-                v2: nist_cve.impact.metric_v2.map(|metric| CVSSVData {
-                    vector_string: metric.cvss.vector_string,
-                    base_score: metric.cvss.base_score,
-                    impact_score: metric.impact_score,
-                    severity: metric.severity,
-                }),
+                v4: cvss_v4,
+                v3: cvss_v3,
+                v2: cvss_v2,
             },
         }
     }
@@ -417,6 +419,7 @@ pub struct Reference {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CVSS {
+    v4: Option<CVSSVData>,
     v3: Option<CVSSVData>,
     v2: Option<CVSSVData>,
 }
@@ -430,4 +433,16 @@ pub struct CVSSVData {
     #[serde(rename = "impactScore")]
     pub impact_score: f32,
     pub severity: String,
+}
+
+fn cvss_score_to_severity(score: f64) -> String {
+    if score == 0.0 {
+        "NONE".to_string()
+    } else if score < 4.0 {
+        "LOW".to_string()
+    } else if score < 7.0 {
+        "MEDIUM".to_string()
+    } else {
+        "HIGH".to_string()
+    }
 }
