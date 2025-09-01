@@ -152,13 +152,11 @@ pub fn import_nist(
 
     for item in &cve_list {
         let refs = item
-            .cve
             .references
-            .reference_data
             .iter()
-            .map(|data| db::models::Reference {
-                url: data.url.clone(),
-                tags: data.tags.clone(),
+            .map(|r| db::models::Reference {
+                url: r.url.clone(),
+                tags: r.tags.clone(),
             })
             .collect::<Vec<_>>();
 
@@ -190,7 +188,7 @@ pub fn import_nist(
                 let inserted = repository.batch_insert_cves(new_cves_batch)?;
                 num_imported += inserted;
                 if num_imported > 0 {
-                    log::info!("bach imported {} cves ...", num_imported);
+                    log::info!("batch imported {} cves ...", num_imported);
                 }
 
                 // Reset the collection for the next batch
