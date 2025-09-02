@@ -86,6 +86,7 @@ fn read_cves_from_path<P: AsRef<Path>>(path: P) -> Result<Vec<cve::CVE>> {
     let resp: NvdResponse = serde_json::from_reader(reader)
         .with_context(|| format!("failed to parse cve file from {}", path.as_ref().display()))?;
 
+    // Filter out incomplete CVE entries; NVD may publish before processing completes.
     let cves = resp
         .vulnerabilities
         .into_iter()
