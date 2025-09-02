@@ -10,9 +10,7 @@ use crate::cve_sources::version_cmp;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Node {
-    #[serde(default)]
     pub operator: Option<Operator>,
-    #[serde(default)]
     pub negate: Option<bool>,
     #[serde(rename = "cpeMatch", default)]
     pub cpe_match: Vec<CpeMatch>,
@@ -30,15 +28,15 @@ pub struct CpeMatch {
         serialize_with = "cpe23_string_serialize"
     )]
     pub cpe23: cpe::CPE23,
-    #[serde(default, rename = "versionStartIncluding")]
+    #[serde(rename = "versionStartIncluding")]
     pub version_start_including: Option<String>,
-    #[serde(default, rename = "versionStartExcluding")]
+    #[serde(rename = "versionStartExcluding")]
     pub version_start_excluding: Option<String>,
-    #[serde(default, rename = "versionEndIncluding")]
+    #[serde(rename = "versionEndIncluding")]
     pub version_end_including: Option<String>,
-    #[serde(default, rename = "versionEndExcluding")]
+    #[serde(rename = "versionEndExcluding")]
     pub version_end_excluding: Option<String>,
-    #[serde(default, rename = "matchCriteriaId")]
+    #[serde(rename = "matchCriteriaId")]
     pub match_criteria_id: Option<String>,
 }
 
@@ -90,10 +88,14 @@ impl CpeMatch {
     }
 
     pub fn is_match(&self, product: &str, version: &str) -> bool {
+        // only evaluate leaves marked as vulnerable by NVD
         if !self.vulnerable {
             return false;
         }
+
+        // product must match
         if cpe23_product_match(&self.cpe23, product) {
+            // match contains a version range
             if self.has_version_range() {
                 return self.version_range_matches(version);
             }
@@ -170,14 +172,16 @@ impl Node {
         let op = self.operator.as_ref().unwrap_or(&Operator::Or);
 
         let res = if !self.cpe_match.is_empty() {
+            // leaf node
             match op {
-                Operator::Or => self.cpe_match.iter().any(|m| m.is_match(product, version)),
-                Operator::And => self.cpe_match.iter().all(|m| m.is_match(product, version)),
+                Operator::Or => self.cpe_match.iter().any(|m| m.is_match(product, version)), // any of them
+                Operator::And => self.cpe_match.iter().all(|m| m.is_match(product, version)), // all of them
             }
         } else {
+            // evaluate children
             match op {
-                Operator::Or => self.children.iter().any(|c| c.is_match(product, version)),
-                Operator::And => self.children.iter().all(|c| c.is_match(product, version)),
+                Operator::Or => self.children.iter().any(|c| c.is_match(product, version)), // any of them
+                Operator::And => self.children.iter().all(|c| c.is_match(product, version)), // all of them
             }
         };
 
@@ -197,8 +201,8 @@ where
     struct StringVisitor;
     impl<'de> Visitor<'de> for StringVisitor {
         type Value = cpe::CPE23;
-        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            f.write_str("CPE 2.3 string")
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("CPE 2.3 string")
         }
         fn visit_str<E>(self, value: &str) -> Result<cpe::CPE23, E>
         where
@@ -231,14 +235,17 @@ mod tests {
             "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
             ProductMatch("stratocaster", false),
         );
+
         table.insert(
             "cpe:2.3:o:gibson:lespaul:-:*:*:*:*:*:*:*",
             ProductMatch("lespaul", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
             ProductMatch("tar", false),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
             ProductMatch("node-tar", true),
@@ -260,38 +267,47 @@ mod tests {
             "cpe:2.3:o:vendor:product:-:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", false),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:*:*:*:*:*:*:*:*",
             VersionMatch("0.0.0", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0.0:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
             VersionMatch("1.0.0", false),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0.1:*:*:*:*:*:*:*",
             VersionMatch("1.0.1", true),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
             VersionMatch("1.0.1", false),
         );
+
         table.insert(
             "cpe:2.3:o:vendor:product:1.0.1:rc0:*:*:*:*:*:*",
             VersionMatch("1.0.1 RC0", true),

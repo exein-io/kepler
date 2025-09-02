@@ -48,6 +48,7 @@ impl PostgresRepository {
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         let pool = r2d2::Pool::new(manager)?;
         let migrations = FileBasedMigrations::from_path(migrations_directory)?;
+
         Ok(Self { pool, migrations })
     }
 }
@@ -60,6 +61,7 @@ impl PostgresRepository {
 
     pub fn any_pending_migrations(&self) -> Result<bool> {
         let mut conn = self.pool.get()?;
+
         conn.has_pending_migration(self.migrations.clone())
             .map_err(|e| anyhow!(e))
             .context("failed checking pending migrations")
@@ -67,13 +69,19 @@ impl PostgresRepository {
 
     pub fn run_pending_migrations(&self) -> Result<()> {
         let mut conn = self.pool.get()?;
+
         conn.run_pending_migrations(self.migrations.clone())
             .map_err(|e| anyhow!(e))
             .context("failed running pending migrations")?;
+
         Ok(())
     }
 
-    /// Insert objects (dedup by `cve` via ON CONFLICT DO NOTHING) in batches.
+    /// Insert a list of objects into the database if they don't already exist.
+    ///
+    /// Insertion is done in batches of size `KEPLER__BATCH_SIZE` to avoid exceeding the maximum number of parameters = *(65535)* for PostgreSQL  
+    ///
+    /// Returns a [`HashMap<String, i32>`] of CVE IDs to their assigned object IDs.
     pub fn insert_objects(
         &self,
         objects_to_insert: Vec<models::NewObject>,
@@ -86,12 +94,14 @@ impl PostgresRepository {
         for chunk in objects_to_insert.chunks(*KEPLER_BATCH_SIZE) {
             let inserted_ids: HashMap<String, i32> =
                 self.batch_insert_objects(chunk)?.into_iter().collect();
+
             inserted_object_ids.extend(inserted_ids);
         }
+
         Ok(inserted_object_ids)
     }
 
-    /// Inserts [`schema::objects`] in batches of size `KEPLER__BATCH_SIZE`.
+    /// Inserts [`schema::objects`] into database in batches of size `KEPLER__BATCH_SIZE`.
     pub fn batch_insert_objects(
         &self,
         values_list: &[models::NewObject],
@@ -114,7 +124,7 @@ impl PostgresRepository {
                 log::warn!("Zero object records are inserted!");
             }
 
-            // Query back to get IDs (idempotent whether inserted-or-existing).
+            // Query back the inserted records to get their assigned IDs.
             let inserted_objects = objects
                 .filter(cve.eq_any(&object_cves))
                 .select((cve, id))
@@ -125,9 +135,12 @@ impl PostgresRepository {
         })
     }
 
-    /// Batch insert CVEs (dedup by `(cve,vendor,product)`).
+    /// Batch insert CVEs if they don't already exist in the database.
+    ///
+    /// Returns the number of inserted records.
     pub fn batch_insert_cves(&self, values_list: Vec<models::NewCVE>) -> Result<usize> {
         use schema::cves::dsl::*;
+
         let mut conn = self.pool.get()?;
         conn.transaction(|conn| {
             let inserted_count = insert_into(cves)
@@ -136,12 +149,14 @@ impl PostgresRepository {
                 .do_nothing()
                 .execute(conn)
                 .context("error creating cves in batch")?;
+
             Ok(inserted_count)
         })
     }
 
     pub fn delete_cve(&self, the_vendor: &str, the_product: &str, the_cve: &str) -> Result<usize> {
         use schema::cves::dsl::*;
+
         let mut conn = self.pool.get()?;
         diesel::delete(
             cves.filter(
@@ -157,6 +172,7 @@ impl PostgresRepository {
 
     pub fn get_products(&self) -> Result<Vec<models::Product>> {
         use schema::cves::dsl::*;
+
         let mut conn = self.pool.get()?;
 
         let prods: Vec<(String, String)> = cves
@@ -208,13 +224,8 @@ impl PostgresRepository {
 
         let mut conn = self.pool.get()?;
 
-        // Fetch candidate rows
+        // fetch potential candidates for this query
         let start = Instant::now();
-        log::debug!(
-            "query candidates by vendor={:?}, product='{}'",
-            query.vendor,
-            query.product
-        );
         let candidates = fetch_candidates(&mut conn, query.vendor.as_ref(), &query.product)?;
         log::info!(
             "found {} candidates in {} ms",
@@ -222,7 +233,7 @@ impl PostgresRepository {
             start.elapsed().as_millis()
         );
 
-        // Deserialize stored JSON payloads into source-specific structs
+        // deserialize all objects belonging to the potential CVEs
         let start = Instant::now();
         let sources = candidates
             .into_iter()
@@ -249,9 +260,11 @@ impl PostgresRepository {
                         vendor: cve_row.vendor,
                         product: cve_row.product,
                     };
+
                     let matched_cve: MatchedCVE = match source {
                         Source::Nist(nist_cve) => (product, nist_cve).into(),
                     };
+
                     Some(matched_cve)
                 } else {
                     None
@@ -269,7 +282,7 @@ impl PostgresRepository {
     }
 }
 
-/// Build unique objects from CVEs; value is the serialized full NVD 2.0 CVE for later re-hydration.
+/// Create unique objects from the CVE list
 pub fn create_unique_objects(
     cve_list: &[nist::cve::CVE],
 ) -> Result<HashMap<String, models::NewObject>> {
