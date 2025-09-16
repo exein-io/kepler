@@ -157,6 +157,20 @@ done
 [2025-09-15T09:21:02Z INFO  domain_db::cve_sources::nist] extracting /data/nvdcve-2.0-2003.json.gz to /data/nvdcve-2.0-2003.json ...
 ```
 
+### 📝 Important Note: Duplicate Prevention
+
+Kepler automatically prevents duplicate data imports through database constraints:
+
+- **Object table**: Unique constraint on the `cve` field prevents duplicate objects
+- **CVEs table**: Composite unique constraint on `(cve, vendor, product)` prevents duplicate vulnerability entries
+
+This ensures data integrity and prevents redundant imports when running import commands multiple times.
+
+**Database constraints source code:**
+- [Object table constraint](https://github.com/exein-io/kepler/blob/72cfcbdee1f02899fc7e482b7f77cd6b4972bf6d/domain-db/src/db/mod.rs#L105)
+- [CVEs table constraint](https://github.com/exein-io/kepler/blob/72cfcbdee1f02899fc7e482b7f77cd6b4972bf6d/domain-db/src/db/mod.rs#L141)
+- [Migration file](https://github.com/exein-io/kepler/blob/28d7b8bb67e1b6f58038156fa909839b70965892/migrations/2025-05-15-124616_add_unique_constraint_to_objects_and_cves/up.sql)
+
 ### Database migration notes
 
 When the application starts, it automatically checks for and applies any pending database migrations. To prevent automatic migration and stop when a pending migration is detected, remove the `--migrate` option.
