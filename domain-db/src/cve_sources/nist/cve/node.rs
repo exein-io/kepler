@@ -112,16 +112,21 @@ fn cpe23_product_match(cpe: &cpe::CPE23, product: &str) -> bool {
         return false;
     }
 
-    let my_product = if let cpe::component::Component::Value(software) = &cpe.target_sw {
-        // if target_sw is set to a value, then the product name must be created from it
-        // plus the actual product, so that if target_sw=node.js and pruduct=tar (<-- this
-        // one alone would false positive on gnu tar for instance), my_product becomes node-tar
-        format!("{}-{}", normalize_target_software(software), cpe.product)
-    } else {
-        cpe.product.to_string()
-    };
+    let base_product = cpe.product.to_string();
+    if product == base_product {
+        return true;
+    }
 
-    product == my_product
+    if let cpe::component::Component::Value(software) = &cpe.target_sw {
+        // when target_sw is set we also expose the historic combined form (target_sw-product)
+        // to maintain compatibility with existing clients.
+        let normalized = normalize_target_software(software);
+        let combined = format!("{}-{}", normalized, base_product);
+
+        return product == combined;
+    }
+
+    false
 }
 
 fn cpe23_version_match(cpe: &cpe::CPE23, version: &str) -> bool {
@@ -223,7 +228,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{cpe23_product_match, cpe23_version_match};
+    use super::{cpe23_product_match, cpe23_version_match, CpeMatch};
     use std::collections::HashMap;
 
     #[test]
@@ -243,7 +248,7 @@ mod tests {
 
         table.insert(
             "cpe:2.3:o:vendor:tar:-:*:*:*:*:node.js:*:*",
-            ProductMatch("tar", false),
+            ProductMatch("tar", true),
         );
 
         table.insert(
@@ -318,5 +323,47 @@ mod tests {
             assert!(res.is_ok());
             assert_eq!(m.1, cpe23_version_match(&res.unwrap(), m.0));
         }
+    }
+
+    #[test]
+    fn version_end_excluding_treats_lower_versions_as_vulnerable() {
+        let cpe = "cpe:2.3:a:elementor:site_mailer:*:*:*:*:*:*:*:*"
+            .parse()
+            .expect("valid CPE string");
+
+        let matcher = CpeMatch {
+            vulnerable: true,
+            cpe23: cpe,
+            version_start_including: None,
+            version_start_excluding: None,
+            version_end_including: None,
+            version_end_excluding: Some("1.2.4".into()),
+            match_criteria_id: None,
+        };
+
+        assert!(matcher.is_match("site_mailer", "1.2.3"));
+        assert!(matcher.is_match("site_mailer", "1.0.0"));
+        assert!(!matcher.is_match("site_mailer", "1.2.4"));
+        assert!(!matcher.is_match("site_mailer", "1.2.5"));
+    }
+
+    #[test]
+    fn target_sw_still_matches_plain_product_name() {
+        let cpe = "cpe:2.3:a:elementor:site_mailer:*:*:*:*:*:wordpress:*:*"
+            .parse()
+            .expect("valid CPE string with target_sw");
+
+        let matcher = CpeMatch {
+            vulnerable: true,
+            cpe23: cpe,
+            version_start_including: None,
+            version_start_excluding: None,
+            version_end_including: None,
+            version_end_excluding: Some("1.2.4".into()),
+            match_criteria_id: None,
+        };
+
+        assert!(matcher.is_match("site_mailer", "1.2.3"));
+        assert!(!matcher.is_match("site_mailer", "1.2.4"));
     }
 }
